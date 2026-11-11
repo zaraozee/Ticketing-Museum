@@ -15,6 +15,8 @@ class DatabaseSeeder extends Seeder
             RolePermissionSeeder::class,
             AdminUserSeeder::class,
             AppSettingSeeder::class,
+            MuseumMasterDataSeeder::class,
+            ContentPageSeeder::class,
         ]);
     }
 }

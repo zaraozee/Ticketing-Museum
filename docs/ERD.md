@@ -30,7 +30,7 @@ erDiagram
     MUSEUM_CATEGORIES ||--o{ MUSEUMS : classifies
     MUSEUMS ||--o{ MUSEUM_STAFF : staffed_by
     MUSEUMS ||--o{ MUSEUM_IMAGES : has
-    MUSEUMS ||--o{ MUSEUM_FACILITIES : has
+    MUSEUMS }o--o{ FACILITIES : offers
     MUSEUMS ||--o{ MUSEUM_OPERATING_HOURS : has
     MUSEUMS ||--o{ MUSEUM_CLOSED_DATES : has
     MUSEUMS ||--o{ TICKET_TYPES : sells
@@ -98,9 +98,10 @@ erDiagram
         string timezone
         string status
         string booking_mode
-        int max_per_booking
-        int entry_grace_minutes
-        string video_url
+        int max_tickets_per_booking
+        int entry_early_minutes
+        int entry_late_minutes
+        string youtube_video_id
         timestamp deleted_at
     }
     MUSEUM_IMAGES {
@@ -110,11 +111,11 @@ erDiagram
         int sort_order
         boolean is_cover
     }
-    MUSEUM_FACILITIES {
+    FACILITIES {
         bigint id PK
-        bigint museum_id FK
         string name
         string icon
+        boolean is_active
     }
     MUSEUM_OPERATING_HOURS {
         bigint id PK
@@ -299,6 +300,10 @@ Index: `email`, `deleted_at`.
 
 **museum_categories** — master kategori. `name` NN, `slug` UQ, `parent_id` FK null (hierarki opsional), `is_active`.
 
+**facilities** — master fasilitas lintas museum (FR-ADM-05). `name` NN, `icon` (nama ikon), `is_active`. Dikelola Admin; museum memilih lewat pivot.
+
+**museum_facility** — pivot museum ↔ facilities. **UQ (museum_id, facility_id)**. `ON DELETE CASCADE` (konten ringan).
+
 **museums** — entitas utama venue.
 | Kolom | Tipe | Aturan |
 |---|---|---|
@@ -310,16 +315,18 @@ Index: `email`, `deleted_at`.
 | address, city, province | varchar | city di-index untuk filter |
 | latitude / longitude | decimal(10,7) | null; CHECK rentang |
 | timezone | varchar(40) | default `Asia/Jakarta` |
-| status | varchar | `draft`/`pending_review`/`approved`/`rejected`/`archived` |
-| booking_mode | varchar | `daily` (satu sesi per hari) / `slot` |
-| max_per_booking | smallint | default 10 |
-| entry_grace_minutes | smallint | default 15 |
-| video_url | varchar | YouTube; divalidasi di backend |
+| status | varchar | `draft`/`pending_review`/`published`/`rejected`/`suspended`/`archived` |
+| booking_mode | varchar | `daily` (satu sesi per hari) / `timed_slot` |
+| max_tickets_per_booking | smallint | default 10 (BR-03) |
+| entry_early_minutes | smallint | default 15 (BR-15) |
+| entry_late_minutes | smallint | default 30 (BR-15) |
+| youtube_video_id | char(11) | null; hanya ID, regex `^[A-Za-z0-9_-]{11}$` |
+| submitted_at / published_at / rejected_at | timestamptz | null (jejak alur status) |
+| rejection_note | varchar(500) | null |
 | deleted_at | timestamptz | soft delete |
-Index: `slug` UQ, `(status, city)`, `(category_id, status)`.
+Index: `slug` UQ, `(status, city)`, `(category_id, status)`, `organizer_profile_id`.
 
 **museum_images** — FK `museum_id`; `path`, `caption`, `sort_order`, `is_cover`. Index `(museum_id, sort_order)`.
-**museum_facilities** — FK `museum_id`; `name`, `icon`. (Bila daftar fasilitas ingin dibakukan, ubah menjadi master `facilities` + pivot; MVP cukup sederhana.)
 **museum_operating_hours** — FK `museum_id`; `day_of_week` (0–6), `open_time`, `close_time`, `is_closed`. **UQ (museum_id, day_of_week)**.
 **museum_closed_dates** — FK `museum_id`; `closed_on` date, `reason`. **UQ (museum_id, closed_on)**.
 
@@ -391,12 +398,13 @@ Konsekuensi menyimpan hash saja: e-ticket dirender ulang dari token yang **dihit
 **notifications** — tabel standar Laravel (`database` channel).
 **activity_logs** — `actor_id` null (sistem), `action`, `subject_type/id`, `properties` json (nilai lama/baru), `ip_address`, `created_at`. Index `(subject_type, subject_id)`, `(actor_id, created_at)`.
 **settings** — key/value konfigurasi platform (mis. `payment_expiry_minutes`).
+**content_pages** — halaman statis dan FAQ yang dikelola Admin (FR-ADM-09). `title`, `slug` UQ, `type` (`page`/`faq`), `content` (teks), `is_published`, `sort_order`. Index `(type, is_published, sort_order)`. Ditampilkan publik pada `/bantuan` dan `/bantuan/{slug}`; halaman `is_published = false` menghasilkan 404.
 **reviews**, **wishlists** — opsional (tahap lanjutan/opsional).
 
 ## 4. Aturan Nullable / Unique / Foreign Key
 
-- Semua FK: `ON DELETE RESTRICT` untuk tabel transaksi (`bookings`, `payments`, `tickets`, `ticket_scans`) agar audit utuh; `ON DELETE CASCADE` hanya untuk anak murni konten (`museum_images`, `museum_facilities`, `museum_operating_hours`, `museum_closed_dates`).
-- Unique penting: `users.email`, `museums.slug`, `payments.provider_order_id`, `payment_events.event_key`, `tickets.token_hash`, `tickets.ticket_code`, `bookings.booking_code`, `museum_staff(museum_id,user_id)`, `visit_sessions(museum_id,visit_date,start_time)`.
+- Semua FK: `ON DELETE RESTRICT` untuk tabel transaksi (`bookings`, `payments`, `tickets`, `ticket_scans`) agar audit utuh; `ON DELETE CASCADE` hanya untuk anak murni konten (`museum_images`, `museum_facility`, `museum_operating_hours`, `museum_closed_dates`).
+- Unique penting: `users.email`, `museums.slug`, `payments.provider_order_id`, `payment_events.event_key`, `tickets.token_hash`, `tickets.ticket_code`, `bookings.booking_code`, `museum_staff(museum_id,user_id)`, `museum_facility(museum_id,facility_id)`, `visit_sessions(museum_id,visit_date,start_time)`.
 - Kolom snapshot **NN**, kolom referensi (`ticket_type_id`) tetap FK agar laporan per jenis tiket bisa dibuat.
 
 ## 5. Token QR (rancangan)
@@ -466,11 +474,11 @@ Dengan demikian job scheduler yang berjalan dua kali atau webhook `expire` yang 
 | users | Ya + anonimisasi data pribadi | Akun dapat dihapus, transaksi tetap |
 | museums, ticket_types | Ya (`archived`/`deleted_at`) | Booking lama masih mereferensikan |
 | bookings, payments, tickets, scans, payment_events | Tidak | Audit |
-| museum_images/facilities/hours/closed_dates | Hard delete | Konten ringan |
+| museum_images/museum_facility/hours/closed_dates | Hard delete | Konten ringan |
 
 ## 8. Contoh Data
 
-**museums**: `id=1, name="Museum Batik Nusantara", booking_mode="slot", status="approved"`
+**museums**: `id=1, name="Museum Batik Nusantara", booking_mode="timed_slot", status="published"`
 **ticket_types**: `(id=1, museum_id=1, "Dewasa", 25000)`, `(id=2, museum_id=1, "Pelajar", 10000)`
 **visit_sessions**: `(id=10, museum_id=1, 2026-12-20, 09:00–11:00, capacity=100, held=2, sold=48)`
 

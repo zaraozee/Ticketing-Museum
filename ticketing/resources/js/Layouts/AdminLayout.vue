@@ -35,6 +35,15 @@ const logout = () => {
                 <Link href="/admin/museums" class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">
                     <span>Moderasi Museum</span>
                 </Link>
+                <Link href="/admin/categories" class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                    <span>Kategori Museum</span>
+                </Link>
+                <Link href="/admin/facilities" class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                    <span>Master Fasilitas</span>
+                </Link>
+                <Link href="/admin/content-pages" class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">
+                    <span>Konten &amp; FAQ</span>
+                </Link>
                 <Link href="/admin/users" class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition">
                     <span>Kelola Pengguna</span>
                 </Link>

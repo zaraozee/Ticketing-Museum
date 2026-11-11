@@ -35,7 +35,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.4'
-          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql, pgsql, redis
+          extensions: mbstring, xml, ctype, iconv, intl, pdo, pdo_pgsql, pgsql, redis, gd
           coverage: none
 
       - name: Setup Node.js

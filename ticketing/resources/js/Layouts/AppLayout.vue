@@ -29,7 +29,7 @@ const logout = () => {
                             <span class="text-xl font-bold tracking-tight text-slate-900">{{ appName }}</span>
                         </Link>
                         <div class="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
-                            <Link href="/" class="hover:text-blue-600 transition">Jelajah Museum</Link>
+                            <Link href="/museums" class="hover:text-blue-600 transition">Jelajah Museum</Link>
                             <Link v-if="user" href="/my-tickets" class="hover:text-blue-600 transition">Tiket Saya</Link>
                             <Link v-if="user?.is_organizer" href="/organizer" class="text-blue-600 font-semibold hover:underline">Area Pengelola</Link>
                             <Link v-if="user?.is_admin" href="/admin" class="text-indigo-600 font-semibold hover:underline">Area Admin</Link>
@@ -78,7 +78,7 @@ const logout = () => {
 
             <!-- Mobile menu dropdown -->
             <div v-if="mobileMenuOpen" class="md:hidden border-b border-slate-200 bg-white px-4 pt-2 pb-4 space-y-2">
-                <Link href="/" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:bg-slate-50">Jelajah Museum</Link>
+                <Link href="/museums" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:bg-slate-50">Jelajah Museum</Link>
                 <template v-if="user">
                     <Link href="/my-tickets" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:bg-slate-50">Tiket Saya</Link>
                     <Link href="/profile" class="block px-3 py-2 rounded-md text-base font-medium text-slate-700 hover:bg-slate-50">Profil Akun</Link>
@@ -119,8 +119,9 @@ const logout = () => {
                 </div>
                 <div class="flex gap-6 text-xs">
                     <Link href="/register/organizer" class="text-blue-600 hover:underline">Daftar Sebagai Pengelola Museum</Link>
-                    <a href="#" class="hover:text-slate-800">Syarat & Ketentuan</a>
-                    <a href="#" class="hover:text-slate-800">Kebijakan Privasi</a>
+                    <Link href="/bantuan/syarat-dan-ketentuan" class="hover:text-slate-800">Syarat &amp; Ketentuan</Link>
+                    <Link href="/bantuan/kebijakan-privasi" class="hover:text-slate-800">Kebijakan Privasi</Link>
+                    <Link href="/bantuan" class="hover:text-slate-800">Bantuan</Link>
                 </div>
             </div>
         </footer>

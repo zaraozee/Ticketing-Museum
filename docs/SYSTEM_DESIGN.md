@@ -45,6 +45,15 @@ Aplikasi ini adalah **platform pemesanan tiket museum online** berbasis **Progre
 | D-20 | Batas waktu pembayaran default **15 menit** (`app_settings.payment_window_minutes`) | Dapat diubah Admin |
 | D-21 | Role global disimpan sebagai kolom `users.role` + Laravel Policies (tanpa package permission) | Cukup untuk 3 role; dapat dimigrasi ke package permission bila role bertambah |
 
+### 1.1a Keputusan tambahan (Fase 3)
+
+| ID | Keputusan | Catatan |
+|---|---|---|
+| D-22 | Status museum: `draft`, `pending_review`, `published`, `rejected`, `suspended`, `archived` | Menyatukan BR-21 (`published/rejected`), §12.3 (`suspended`), dan ERD (`archived`). `approved` dihapus karena bermakna sama dengan `published` |
+| D-23 | Fasilitas memakai **master `facilities` + pivot `museum_facility`** | Memenuhi FR-ADM-05 (Admin mengelola master) dan menjaga konsistensi penamaan fasilitas lintas museum. `museum_facilities` (denormalisasi) dibatalkan |
+| D-24 | Video museum disimpan sebagai `museums.youtube_video_id` (char 11) | Sesuai THIRD_PARTY §6: backend mengekstrak ID dari URL, regex `^[A-Za-z0-9_-]{11}$`; tidak menyimpan HTML/iframe pengguna |
+| D-25 | Nama kolom mengikuti BR/D-08: `max_tickets_per_booking`, `entry_early_minutes`, `entry_late_minutes`, `booking_mode = daily\|timed_slot` | ERD disesuaikan. Dua kolom grace menggantikan `entry_grace_minutes` agar jendela scan eksplisit (BR-15) |
+
 ### 1.2 Di luar cakupan MVP (tahap lanjutan / opsional)
 
 Refund otomatis, reschedule booking, kode promo/voucher, tiket rombongan, nama pengunjung per tiket, kuota per jenis tiket, harga terjadwal (`ticket_prices`), review dan wishlist, web push FCM, login Facebook/TikTok, chatbot AI, mode scan offline, aplikasi native, payout/komisi ke museum.

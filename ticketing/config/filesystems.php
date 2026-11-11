@@ -17,6 +17,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Museum Media Disk
+    |--------------------------------------------------------------------------
+    |
+    | Disk untuk foto museum. Dipisah dari disk default agar dapat dipindah ke
+    | S3-compatible storage di produksi tanpa menyentuh kode lain.
+    |
+    */
+
+    'museum_disk' => env('MUSEUM_MEDIA_DISK', 'public'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Filesystem Disks
     |--------------------------------------------------------------------------
     |

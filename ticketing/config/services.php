@@ -41,4 +41,10 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
     ],
 
+    // Google Maps Embed API (THIRD_PARTY §4). Bila kosong, halaman museum
+    // hanya menampilkan tautan "Petunjuk Arah" tanpa iframe.
+    'google_maps' => [
+        'key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
 ];
