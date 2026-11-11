@@ -83,10 +83,12 @@ flowchart LR
 | 1 | `tests/Feature/Organizer/SlotGenerationTest.php` — penjalanan kedua `created = 0`, jumlah baris tetap. Command diuji terpisah. |
 | 2 | Tes tanggal tutup (`museum_closed_dates`) dan hari tutup mingguan (`museum_operating_hours.is_closed`). |
 | 3 | `QuotaService::changeCapacity()` + validasi di `ScheduleController`/`SlotCapacityOverrideController`; CHECK constraint di PostgreSQL/MySQL. |
-| 4 | `tests/Feature/Organizer/QuotaConcurrencyTest.php` — 8 proses PHP terpisah dengan barrier, dijalankan pada PostgreSQL/MySQL; pada SQLite jalur paralel dilewati dan hanya invarian akhir yang diperiksa. |
+| 4 | `tests/Feature/Organizer/QuotaConcurrencyTest.php` — 8 proses PHP terpisah dengan barrier memperebutkan 5 kursi; **terbukti pada MySQL 8.4** (5 diterima, 3 ditolak, `reserved_count = 5`, tidak oversell) dan pada SQLite hanya invarian akhir yang diperiksa. Catatan: tes ini **tidak boleh** memakai `RefreshDatabase` apa adanya karena transaksi pembungkus membuat baris tidak ter-commit sehingga proses anak tidak dapat melihatnya; tes melakukan commit eksplisit sebelum pekerja dijalankan. |
 | 5 | `tests/Feature/Public/AvailabilityApiTest.php` — `available`/`almost_full`/`full`, plus `closed` dan `not_open`. |
 
 Keputusan yang diambil: D-26 (nama tabel/kolom), D-27 (tabel override terpisah), D-28 (generator idempoten) di `SYSTEM_DESIGN.md` §1.1b. Status `not_open` ditambahkan pada `AvailabilityStatus` agar tanggal yang belum digenerate tidak dilaporkan sebagai `closed`.
+
+**Verifikasi lintas driver.** Seluruh suite (137 tes) dijalankan hijau pada SQLite **dan** MySQL 8.4. Pada MySQL, `CHECK` constraint overbooking, `CHECK` status, `CHECK` harga non-negatif, dan unique index ekspresi `COALESCE(start_time)` diverifikasi menolak data yang melanggar. PostgreSQL belum diverifikasi lokal karena build PHP di mesin pengembangan tidak menyertakan `pdo_pgsql`; validasi pgsql bergantung pada CI.
 
 ## Fase 5 — Booking dan payment gateway
 

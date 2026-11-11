@@ -47,7 +47,9 @@ test('organizer can upload a valid image and the stored file is re-encoded', fun
     expect($image)->not->toBeNull()
         // Format keluaran mengikuti dukungan GD server (webp/jpg/png), tetapi
         // selalu hasil re-encode dengan nama acak — bukan nama berkas asli.
-        ->and($image->path)->toMatch('/^1\/[0-9A-Z]{26}\.(webp|jpg|png)$/')
+        // Folder mengikuti `museum_id`, jadi jangan hardcode "1": pada MySQL
+        // auto-increment dapat melanjutkan dari nilai sebelumnya.
+        ->and($image->path)->toMatch('/^'.$this->museum->id.'\/[0-9A-Z]{26}\.(webp|jpg|png)$/')
         ->and($image->is_cover)->toBeTrue();
 
     Storage::disk('public')->assertExists($image->path);
