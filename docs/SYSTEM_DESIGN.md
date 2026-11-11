@@ -54,6 +54,14 @@ Aplikasi ini adalah **platform pemesanan tiket museum online** berbasis **Progre
 | D-24 | Video museum disimpan sebagai `museums.youtube_video_id` (char 11) | Sesuai THIRD_PARTY §6: backend mengekstrak ID dari URL, regex `^[A-Za-z0-9_-]{11}$`; tidak menyimpan HTML/iframe pengguna |
 | D-25 | Nama kolom mengikuti BR/D-08: `max_tickets_per_booking`, `entry_early_minutes`, `entry_late_minutes`, `booking_mode = daily\|timed_slot` | ERD disesuaikan. Dua kolom grace menggantikan `entry_grace_minutes` agar jendela scan eksplisit (BR-15) |
 
+### 1.1b Keputusan tambahan (Fase 4)
+
+| ID | Keputusan | Catatan |
+|---|---|---|
+| D-26 | Tabel kuota bernama **`visit_slots`** (bukan `visit_sessions`), kolom **`reserved_count`** (bukan `held_count`), dan tabel **`slot_templates`** berdiri sendiri | ERD §3.3 sebelumnya menyimpang dari dokumen ini (D-08, BR-05, §10, §13) dan dari ROADMAP Fase 4. Dua dari tiga dokumen sepakat pada `visit_slots`/`reserved_count`/`slot_templates`, sehingga ERD disesuaikan agar konsisten. FK di `bookings` menjadi `visit_slot_id` |
+| D-27 | Override kuota per tanggal disimpan di tabel **`slot_capacity_overrides`** (`museum_id`, `visit_date`, `start_time` nullable, `capacity`), bukan dengan mengubah `visit_slots.capacity` | `slots:generate` bersifat idempoten dan tidak boleh menimpa override. Override dibaca saat generate/regenerate; menghapus override mengembalikan kuota ke nilai template. UQ `(museum_id, visit_date, start_time)` dengan `COALESCE` untuk mode `daily` |
+| D-28 | `slots:generate` **idempoten** dan hanya membuat slot yang belum ada (`updateOrCreate` pada kunci `(museum_id, visit_date, start_time)`); tidak pernah menurunkan `capacity` slot yang sudah punya `reserved_count + sold_count` | Memenuhi acceptance criteria Fase 4 butir 1 dan BR-20. Slot yang sudah ada tidak dihapus agar booking lama tetap valid |
+
 ### 1.2 Di luar cakupan MVP (tahap lanjutan / opsional)
 
 Refund otomatis, reschedule booking, kode promo/voucher, tiket rombongan, nama pengunjung per tiket, kuota per jenis tiket, harga terjadwal (`ticket_prices`), review dan wishlist, web push FCM, login Facebook/TikTok, chatbot AI, mode scan offline, aplikasi native, payout/komisi ke museum.

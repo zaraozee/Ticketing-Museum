@@ -20,6 +20,14 @@ interface OperatingHour {
     is_closed: boolean;
 }
 
+interface TicketTypeItem {
+    id: number;
+    name: string;
+    description: string | null;
+    price: number;
+    price_label: string;
+}
+
 const props = defineProps<{
     museum: {
         slug: string;
@@ -38,6 +46,8 @@ const props = defineProps<{
         facilities: FacilityItem[];
         operating_hours: OperatingHour[];
     };
+    ticketTypes: TicketTypeItem[];
+    lowestPrice: number | null;
     directionsUrl: string | null;
     embedUrl: string | null;
 }>();
@@ -46,6 +56,10 @@ const activeImage = ref(0);
 const videoLoaded = ref(false);
 
 const activeImageUrl = computed(() => props.museum.images[activeImage.value]?.url ?? null);
+
+const lowestPriceLabel = computed(() =>
+    props.lowestPrice === null ? null : `Rp ${Number(props.lowestPrice).toLocaleString('id-ID')}`,
+);
 
 const locationLine = computed(() => {
     const parts = [props.museum.address, props.museum.city, props.museum.province].filter(Boolean);
@@ -175,9 +189,27 @@ const locationLine = computed(() => {
                     <div class="sticky top-24 space-y-4">
                         <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                             <h2 class="text-base font-bold text-slate-900">Rencanakan Kunjungan</h2>
+
+                            <p v-if="lowestPriceLabel" class="mt-2 flex items-baseline gap-1">
+                                <span class="text-xs text-slate-500">Mulai dari</span>
+                                <span class="text-xl font-bold text-slate-900">{{ lowestPriceLabel }}</span>
+                                <span class="text-xs text-slate-500">/ tiket</span>
+                            </p>
+
                             <p class="mt-1 text-sm text-slate-600">
                                 Maksimal {{ museum.max_tickets_per_booking }} tiket per pemesanan.
                             </p>
+
+                            <ul v-if="ticketTypes.length" class="mt-4 divide-y divide-slate-100 border-y border-slate-100">
+                                <li v-for="ticket in ticketTypes" :key="ticket.id" class="flex items-start justify-between gap-3 py-2.5">
+                                    <div class="min-w-0">
+                                        <div class="text-sm font-semibold text-slate-900">{{ ticket.name }}</div>
+                                        <div v-if="ticket.description" class="text-xs text-slate-500">{{ ticket.description }}</div>
+                                    </div>
+                                    <div class="flex-shrink-0 text-sm font-semibold text-slate-900">{{ ticket.price_label }}</div>
+                                </li>
+                            </ul>
+
                             <p class="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
                                 Pemesanan tiket dibuka pada fase berikutnya. Saat ini kamu dapat melihat informasi museum.
                             </p>

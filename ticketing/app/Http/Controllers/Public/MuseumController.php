@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Public;
 use App\Http\Controllers\Controller;
 use App\Models\Museum;
 use App\Models\MuseumCategory;
+use App\Models\TicketType;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -122,6 +123,21 @@ class MuseumController extends Controller
                     'is_closed' => $hour->is_closed,
                 ])->values(),
             ],
+            // Fase 4: harga "mulai dari" dan daftar jenis tiket aktif (FR-ORG-06).
+            'ticketTypes' => $museum->ticketTypes()
+                ->active()
+                ->orderBy('sort_order')
+                ->orderBy('id')
+                ->get()
+                ->map(fn (TicketType $ticketType): array => [
+                    'id' => $ticketType->id,
+                    'name' => $ticketType->name,
+                    'description' => $ticketType->description,
+                    'price' => $ticketType->price,
+                    'price_label' => $ticketType->formattedPrice(),
+                ])
+                ->values(),
+            'lowestPrice' => $museum->ticketTypes()->active()->min('price'),
             'directionsUrl' => $directionsUrl,
             'embedUrl' => $embedUrl,
         ]);

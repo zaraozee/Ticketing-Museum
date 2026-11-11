@@ -76,6 +76,18 @@ flowchart LR
 | **Deliverable** | UI kelola tiket dan jadwal; kalender ketersediaan; `QuotaService` teruji |
 | **Acceptance criteria** | (1) `slots:generate` idempoten (tidak menggandakan slot). (2) Tanggal tutup dan hari libur tidak menghasilkan slot. (3) Kuota tidak dapat diturunkan di bawah terjual+ditahan (BR-20). (4) Uji konkurensi: N proses paralel memesan kuota terakhir → total reserved ≤ capacity. (5) Endpoint ketersediaan merefleksikan status `Tersedia/Hampir penuh/Penuh`. |
 
+**Status: selesai.** Catatan implementasi:
+
+| AC | Bukti |
+|---|---|
+| 1 | `tests/Feature/Organizer/SlotGenerationTest.php` — penjalanan kedua `created = 0`, jumlah baris tetap. Command diuji terpisah. |
+| 2 | Tes tanggal tutup (`museum_closed_dates`) dan hari tutup mingguan (`museum_operating_hours.is_closed`). |
+| 3 | `QuotaService::changeCapacity()` + validasi di `ScheduleController`/`SlotCapacityOverrideController`; CHECK constraint di PostgreSQL/MySQL. |
+| 4 | `tests/Feature/Organizer/QuotaConcurrencyTest.php` — 8 proses PHP terpisah dengan barrier, dijalankan pada PostgreSQL/MySQL; pada SQLite jalur paralel dilewati dan hanya invarian akhir yang diperiksa. |
+| 5 | `tests/Feature/Public/AvailabilityApiTest.php` — `available`/`almost_full`/`full`, plus `closed` dan `not_open`. |
+
+Keputusan yang diambil: D-26 (nama tabel/kolom), D-27 (tabel override terpisah), D-28 (generator idempoten) di `SYSTEM_DESIGN.md` §1.1b. Status `not_open` ditambahkan pada `AvailabilityStatus` agar tanggal yang belum digenerate tidak dilaporkan sebagai `closed`.
+
 ## Fase 5 — Booking dan payment gateway
 
 | | |

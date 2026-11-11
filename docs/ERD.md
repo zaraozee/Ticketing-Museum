@@ -34,10 +34,12 @@ erDiagram
     MUSEUMS ||--o{ MUSEUM_OPERATING_HOURS : has
     MUSEUMS ||--o{ MUSEUM_CLOSED_DATES : has
     MUSEUMS ||--o{ TICKET_TYPES : sells
-    MUSEUMS ||--o{ VISIT_SESSIONS : schedules
+    MUSEUMS ||--o{ SLOT_TEMPLATES : defines
+    MUSEUMS ||--o{ VISIT_SLOTS : schedules
+    MUSEUMS ||--o{ SLOT_CAPACITY_OVERRIDES : overrides
     MUSEUMS ||--o{ BOOKINGS : receives
 
-    VISIT_SESSIONS ||--o{ BOOKINGS : booked_for
+    VISIT_SLOTS ||--o{ BOOKINGS : booked_for
     TICKET_TYPES ||--o{ BOOKING_ITEMS : priced_as
     BOOKINGS ||--|{ BOOKING_ITEMS : contains
     BOOKINGS ||--o{ PAYMENTS : paid_by
@@ -141,16 +143,33 @@ erDiagram
         int max_age
         timestamp deleted_at
     }
-    VISIT_SESSIONS {
+    SLOT_TEMPLATES {
+        bigint id PK
+        bigint museum_id FK
+        string name
+        time start_time
+        time end_time
+        int capacity
+        boolean is_active
+        timestamp deleted_at
+    }
+    VISIT_SLOTS {
         bigint id PK
         bigint museum_id FK
         date visit_date
         time start_time
         time end_time
         int capacity
-        int held_count
+        int reserved_count
         int sold_count
         string status
+    }
+    SLOT_CAPACITY_OVERRIDES {
+        bigint id PK
+        bigint museum_id FK
+        date visit_date
+        time start_time
+        int capacity
     }
     BOOKINGS {
         bigint id PK
@@ -158,7 +177,7 @@ erDiagram
         string booking_code UK
         bigint user_id FK
         bigint museum_id FK
-        bigint visit_session_id FK
+        bigint visit_slot_id FK
         string status
         bigint total_amount
         string contact_name
@@ -219,7 +238,7 @@ erDiagram
         bigint booking_item_id FK
         smallint sequence
         bigint museum_id FK
-        bigint visit_session_id FK
+        bigint visit_slot_id FK
         string holder_name
         string status
         timestamp used_at
@@ -263,8 +282,8 @@ erDiagram
 | user → organizer_profile | 1 : 0..1 | Hanya user ber-role Organizer |
 | organizer_profile → museums | 1 : N | Satu organizer boleh banyak museum |
 | museum ↔ user (staff) | N : M via `museum_staff` | `staff_role`: owner / manager / gate_staff |
-| museum → ticket_types / visit_sessions | 1 : N | |
-| visit_session → bookings | 1 : N | Banyak booking berbagi satu kapasitas |
+| museum → ticket_types / visit_slots | 1 : N | |
+| visit_slot → bookings | 1 : N | Banyak booking berbagi satu kapasitas |
 | booking → booking_items | 1 : 1..N | |
 | booking_item → tickets | 1 : quantity | Satu baris item jumlah N menghasilkan N tiket |
 | booking → payments | 1 : 0..N | Bayar ulang bila percobaan sebelumnya gagal/kedaluwarsa (order_id baru) |
@@ -335,17 +354,22 @@ Index: `slug` UQ, `(status, city)`, `(category_id, status)`, `organizer_profile_
 **ticket_types** — jenis dan harga. FK `museum_id`; `name` NN, `description`, `price` bigint NN (≥ 0), `is_active`, `min_age`/`max_age` null, `sort_order`, `deleted_at`. Index `(museum_id, is_active)`.
 > *Perubahan harga terjadwal* (`ticket_prices`) ditunda ke tahap lanjutan; di MVP harga diubah langsung dan booking lama aman karena snapshot.
 
-**visit_sessions** — **inti kuota**. Satu baris = satu museum + tanggal + slot.
+**slot_templates** — pola slot berulang per museum (FR-ORG-07). FK `museum_id`; `name` (mis. "Sesi Pagi"), `start_time`, `end_time`, `capacity` (int NN ≥ 0), `is_active`, `sort_order`, `deleted_at`. **UQ (museum_id, start_time)** untuk mode `timed_slot`; untuk museum `booking_mode = daily` template tidak dipakai (`start_time`/`end_time` null). Index `(museum_id, is_active, sort_order)`.
+> Template adalah **cetakan**; baris yang dijual tetap `visit_slots` hasil `slots:generate`.
+
+**visit_slots** — **inti kuota**. Satu baris = satu museum + tanggal + slot (D-26).
 | Kolom | Tipe | Aturan |
 |---|---|---|
 | museum_id | bigint | FK NN |
 | visit_date | date | NN |
 | start_time / end_time | time | null bila `booking_mode = daily` |
 | capacity | int | NN, ≥ 0 |
-| held_count | int | NN, default 0, ≥ 0 — kuota ditahan (booking pending) |
+| reserved_count | int | NN, default 0, ≥ 0 — kuota ditahan (booking pending) |
 | sold_count | int | NN, default 0, ≥ 0 — kuota terjual (booking confirmed) |
 | status | varchar | `open`/`closed`/`cancelled` |
-Constraint: **UQ (museum_id, visit_date, start_time)** (gunakan `COALESCE` / unique index ekspresi di PostgreSQL agar `NULL` tidak dianggap berbeda); **CHECK (held_count + sold_count <= capacity)**; CHECK `held_count >= 0 AND sold_count >= 0`. Index `(museum_id, visit_date)`.
+Constraint: **UQ (museum_id, visit_date, start_time)** (gunakan `COALESCE` / unique index ekspresi di PostgreSQL agar `NULL` tidak dianggap berbeda); **CHECK (reserved_count + sold_count <= capacity)**; CHECK `reserved_count >= 0 AND sold_count >= 0`. Index `(museum_id, visit_date)`.
+
+**slot_capacity_overrides** — override kuota per tanggal (FR-ORG-07, D-27). FK `museum_id`; `visit_date` date NN; `start_time` time null untuk mode `daily`; `capacity` int NN ≥ 0; `note`. **UQ (museum_id, visit_date, start_time)** via `COALESCE`. Dibaca oleh `slots:generate` dan tidak ditimpa saat regenerate.
 
 > **[REKOMENDASI]** Kuota di level sesi (kapasitas museum per slot), bukan per jenis tiket, agar sederhana dan sesuai kapasitas fisik ruang. Batas per jenis tiket (`ticket_type_limits`) bisa ditambahkan kelak.
 
@@ -356,14 +380,14 @@ Constraint: **UQ (museum_id, visit_date, start_time)** (gunakan `COALESCE` / uni
 |---|---|---|
 | uuid, booking_code | | UQ; booking_code mudah dibaca (mis. `LWG-8F3K2A`) |
 | user_id | bigint | FK NN |
-| museum_id, visit_session_id | bigint | FK NN |
+| museum_id, visit_slot_id | bigint | FK NN |
 | status | varchar | lihat SYSTEM_DESIGN §11.2 |
 | total_amount | bigint | NN |
 | contact_name, contact_email, contact_phone | | NN (snapshot pemesan) |
 | museum_name_snapshot, visit_date_snapshot, slot_label_snapshot | | untuk audit |
 | expires_at | timestamptz | batas bayar |
 | confirmed_at, cancelled_at, expired_at | timestamptz | null |
-Index: `(user_id, created_at)`, `(museum_id, status)`, `(status, expires_at)` (untuk job expire), `visit_session_id`.
+Index: `(user_id, created_at)`, `(museum_id, status)`, `(status, expires_at)` (untuk job expire), `visit_slot_id`.
 
 **booking_items** — FK `booking_id`, FK `ticket_type_id`; `ticket_name_snapshot`, `unit_price`, `quantity` (≥ 1), `subtotal`. Index `booking_id`.
 
@@ -384,11 +408,11 @@ Kolom: FK `booking_id`; `provider` (`midtrans`); **`provider_order_id` UQ** (mis
 | token_hash | char(64) | **UQ**; `sha256(token)`. Fungsinya sebagai **kunci pencarian cepat** saat scan (scanner mengirim token → server hash → cari). Token asli **tidak disimpan** |
 | booking_id, booking_item_id | bigint | FK NN |
 | sequence | smallint | NN, urutan tiket dalam satu `booking_item` (1..quantity). **UQ (booking_item_id, sequence)** mencegah tiket ganda saat proses konfirmasi diulang |
-| museum_id, visit_session_id | bigint | FK NN (didenormalisasi untuk validasi scan cepat) |
+| museum_id, visit_slot_id | bigint | FK NN (didenormalisasi untuk validasi scan cepat) |
 | holder_name | varchar | null |
 | status | varchar | `issued`/`used`/`void` |
 | used_at, used_by | | null; `used_by` FK users |
-Index/constraint: `token_hash` UQ, `ticket_code` UQ, `(booking_item_id, sequence)` UQ, `(museum_id, visit_session_id, status)`, `booking_id`.
+Index/constraint: `token_hash` UQ, `ticket_code` UQ, `(booking_item_id, sequence)` UQ, `(museum_id, visit_slot_id, status)`, `booking_id`.
 Konsekuensi menyimpan hash saja: e-ticket dirender ulang dari token yang **dihitung ulang via HMAC** (lihat §5), bukan dibaca dari database.
 
 **ticket_scans** — setiap percobaan scan (valid maupun gagal). FK `ticket_id` null (token tidak dikenal), `museum_id`, `scanned_by` FK users; `gate_name`; `result`; `token_fingerprint` (8 char pertama hash, bukan token); `scanned_at`; `client_info` (UA/perangkat). Index `(museum_id, scanned_at)`, `ticket_id`.
@@ -404,7 +428,7 @@ Konsekuensi menyimpan hash saja: e-ticket dirender ulang dari token yang **dihit
 ## 4. Aturan Nullable / Unique / Foreign Key
 
 - Semua FK: `ON DELETE RESTRICT` untuk tabel transaksi (`bookings`, `payments`, `tickets`, `ticket_scans`) agar audit utuh; `ON DELETE CASCADE` hanya untuk anak murni konten (`museum_images`, `museum_facility`, `museum_operating_hours`, `museum_closed_dates`).
-- Unique penting: `users.email`, `museums.slug`, `payments.provider_order_id`, `payment_events.event_key`, `tickets.token_hash`, `tickets.ticket_code`, `bookings.booking_code`, `museum_staff(museum_id,user_id)`, `museum_facility(museum_id,facility_id)`, `visit_sessions(museum_id,visit_date,start_time)`.
+- Unique penting: `users.email`, `museums.slug`, `payments.provider_order_id`, `payment_events.event_key`, `tickets.token_hash`, `tickets.ticket_code`, `bookings.booking_code`, `museum_staff(museum_id,user_id)`, `museum_facility(museum_id,facility_id)`, `VISIT_SLOTS(museum_id,visit_date,start_time)`.
 - Kolom snapshot **NN**, kolom referensi (`ticket_type_id`) tetap FK agar laporan per jenis tiket bisa dibuat.
 
 ## 5. Token QR (rancangan)
@@ -422,30 +446,30 @@ Saat membuat booking (satu transaksi DB):
 
 ```sql
 -- 1) Tahan kuota secara atomik. Hanya berhasil jika masih cukup.
-UPDATE visit_sessions
-   SET held_count = held_count + :qty, updated_at = now()
- WHERE id = :session_id
+UPDATE VISIT_SLOTS
+   SET reserved_count = reserved_count + :qty, updated_at = now()
+ WHERE id = :slot_id
    AND status = 'open'
-   AND (held_count + sold_count + :qty) <= capacity;
+   AND (reserved_count + sold_count + :qty) <= capacity;
 -- affected rows = 0  => kuota habis (abort, tampilkan pesan).
 -- affected rows = 1  => lanjut buat bookings + booking_items + payments.
 ```
 
-Mengapa aman: PostgreSQL mengunci baris saat `UPDATE`; dua transaksi untuk kuota terakhir diserialisasi — yang kedua melihat nilai terbaru, kondisi `WHERE` gagal, `affected rows = 0`. `CHECK (held_count + sold_count <= capacity)` adalah **sabuk pengaman terakhir** di level database.
+Mengapa aman: PostgreSQL mengunci baris saat `UPDATE`; dua transaksi untuk kuota terakhir diserialisasi — yang kedua melihat nilai terbaru, kondisi `WHERE` gagal, `affected rows = 0`. `CHECK (reserved_count + sold_count <= capacity)` adalah **sabuk pengaman terakhir** di level database.
 
-Alternatif setara: `SELECT ... FOR UPDATE` pada baris `visit_sessions` lalu hitung di aplikasi (lebih verbose, perlu `DB::transaction` + `lockForUpdate()` di Laravel). Dipilih update kondisional karena lebih sederhana dan lebih sedikit waktu lock.
+Alternatif setara: `SELECT ... FOR UPDATE` pada baris `VISIT_SLOTS` lalu hitung di aplikasi (lebih verbose, perlu `DB::transaction` + `lockForUpdate()` di Laravel). Dipilih update kondisional karena lebih sederhana dan lebih sedikit waktu lock.
 
-Catatan: jangan hitung sisa kuota dari `COUNT(tickets)` pada saat checkout (rawan race condition); counter di `visit_sessions` adalah sumber kebenaran dan direkonsiliasi harian terhadap `SUM(booking_items.quantity)`.
+Catatan: jangan hitung sisa kuota dari `COUNT(tickets)` pada saat checkout (rawan race condition); counter di `VISIT_SLOTS` adalah sumber kebenaran dan direkonsiliasi harian terhadap `SUM(booking_items.quantity)`.
 
 ### 6.2 Siklus kuota
 
-| Peristiwa | Aksi pada `visit_sessions` | Aksi pada booking |
+| Peristiwa | Aksi pada `VISIT_SLOTS` | Aksi pada booking |
 |---|---|---|
-| Checkout dimulai | `held_count += qty` (jika cukup) | `pending_payment`, `expires_at = now + N menit` |
-| Pembayaran **paid** | `held_count -= qty`, `sold_count += qty` (satu transaksi) | `confirmed`, tiket diterbitkan |
-| Pembayaran gagal/kedaluwarsa/cancel | `held_count -= qty` | `expired`/`cancelled` |
+| Checkout dimulai | `reserved_count += qty` (jika cukup) | `pending_payment`, `expires_at = now + N menit` |
+| Pembayaran **paid** | `reserved_count -= qty`, `sold_count += qty` (satu transaksi) | `confirmed`, tiket diterbitkan |
+| Pembayaran gagal/kedaluwarsa/cancel | `reserved_count -= qty` | `expired`/`cancelled` |
 | Refund (lanjutan) | `sold_count -= qty` (bila kebijakan mengizinkan kuota kembali) | `refunded`, tiket `void` |
-| Pembayaran terlambat setelah `expired` | Coba `held_count += qty → sold_count` jika cukup, bila tidak antrean refund | lihat SYSTEM_DESIGN §11.3 |
+| Pembayaran terlambat setelah `expired` | Coba `reserved_count += qty → sold_count` jika cukup, bila tidak antrean refund | lihat SYSTEM_DESIGN §11.3 |
 
 ### 6.3 Pengembalian kuota idempoten
 
@@ -456,7 +480,7 @@ Gunakan guard status, bukan "ingat sudah dikembalikan":
 UPDATE bookings SET status = 'expired', expired_at = now()
  WHERE id = :id AND status = 'pending_payment' AND expires_at <= now();
 -- Hanya jika affected rows = 1:
-UPDATE visit_sessions SET held_count = held_count - :qty WHERE id = :session_id;
+UPDATE VISIT_SLOTS SET reserved_count = reserved_count - :qty WHERE id = :slot_id;
 ```
 
 Dengan demikian job scheduler yang berjalan dua kali atau webhook `expire` yang datang bersamaan tidak mengembalikan kuota dua kali.
@@ -480,13 +504,13 @@ Dengan demikian job scheduler yang berjalan dua kali atau webhook `expire` yang 
 
 **museums**: `id=1, name="Museum Batik Nusantara", booking_mode="timed_slot", status="published"`
 **ticket_types**: `(id=1, museum_id=1, "Dewasa", 25000)`, `(id=2, museum_id=1, "Pelajar", 10000)`
-**visit_sessions**: `(id=10, museum_id=1, 2026-12-20, 09:00–11:00, capacity=100, held=2, sold=48)`
+**VISIT_SLOTS**: `(id=10, museum_id=1, 2026-12-20, 09:00–11:00, capacity=100, reserved=2, sold=48)`
 
 User Rina memesan 2 Dewasa + 1 Pelajar untuk sesi 10:
-- `bookings`: `id=500, code=LWG-8F3K2A, status=pending_payment, total=60000, expires_at=+30m`; `visit_sessions.held_count` 2 → 5.
+- `bookings`: `id=500, code=LWG-8F3K2A, status=pending_payment, total=60000, expires_at=+30m`; `VISIT_SLOTS.reserved_count` 2 → 5.
 - `booking_items`: `(500, type=1, "Dewasa", 25000, qty=2, 50000)`, `(500, type=2, "Pelajar", 10000, qty=1, 10000)`.
 - `payments`: `order_id=LWG-8F3K2A-1, gross_amount=60000, status=pending`.
-- Setelah bayar: `payments.status=paid`, `bookings.status=confirmed`, sesi `held=2, sold=51`, dan 3 baris `tickets` (`status=issued`).
+- Setelah bayar: `payments.status=paid`, `bookings.status=confirmed`, sesi `reserved=2, sold=51`, dan 3 baris `tickets` (`status=issued`).
 - Saat scan pertama tiket #1: `tickets.status=used`; `ticket_scans.result=valid`. Scan kedua: `ticket_scans.result=already_used` (status tetap `used`).
 
 ## 9. Validasi Scan (rujukan implementasi)
@@ -505,7 +529,7 @@ Semua perbandingan memakai **waktu lokal museum** (`museums.timezone`), bukan wa
 ### 9.2 Urutan pemeriksaan (di service `ScanValidator`)
 
 1. Dekode token; prefiks tidak dikenal atau format salah → `invalid`.
-2. `token_hash = sha256(token)`; cari tiket (join `visit_sessions` dan `museums`). Tidak ada → `invalid`.
+2. `token_hash = sha256(token)`; cari tiket (join `VISIT_SLOTS` dan `museums`). Tidak ada → `invalid`.
 3. `tickets.museum_id != museum petugas` → `wrong_museum` (tiket **tidak** diubah).
 4. `status = void` → `void`.
 5. `status = used` → `already_used` (sertakan `used_at` dan nama petugas).

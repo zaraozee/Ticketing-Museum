@@ -11,6 +11,11 @@ use App\Http\Controllers\Organizer\MuseumClosedDateController;
 use App\Http\Controllers\Organizer\MuseumController as OrganizerMuseumController;
 use App\Http\Controllers\Organizer\MuseumImageController;
 use App\Http\Controllers\Organizer\MuseumSubmissionController;
+use App\Http\Controllers\Organizer\ScheduleController as OrganizerScheduleController;
+use App\Http\Controllers\Organizer\ScheduleOverviewController as OrganizerScheduleOverviewController;
+use App\Http\Controllers\Organizer\SlotCapacityOverrideController as OrganizerSlotCapacityOverrideController;
+use App\Http\Controllers\Organizer\SlotTemplateController as OrganizerSlotTemplateController;
+use App\Http\Controllers\Organizer\TicketTypeController as OrganizerTicketTypeController;
 use App\Http\Controllers\Public\ContentPageController as PublicContentPageController;
 use App\Http\Controllers\Public\HomeController;
 use App\Http\Controllers\Public\MuseumController as PublicMuseumController;
@@ -52,6 +57,40 @@ Route::middleware('auth')->group(function () {
             ->name('museums.closed-dates.store');
         Route::delete('museums/{museum}/closed-dates/{closedDate}', [MuseumClosedDateController::class, 'destroy'])
             ->name('museums.closed-dates.destroy');
+
+        // Fase 4 — jenis tiket (FR-ORG-06)
+        Route::get('museums/{museum}/tickets', [OrganizerTicketTypeController::class, 'index'])
+            ->name('museums.tickets');
+        Route::post('museums/{museum}/ticket-types', [OrganizerTicketTypeController::class, 'store'])
+            ->name('museums.ticket-types.store');
+        Route::patch('museums/{museum}/ticket-types/{ticketType}', [OrganizerTicketTypeController::class, 'update'])
+            ->name('museums.ticket-types.update');
+        Route::delete('museums/{museum}/ticket-types/{ticketType}', [OrganizerTicketTypeController::class, 'destroy'])
+            ->name('museums.ticket-types.destroy');
+
+        // Fase 4 — template slot & jadwal (FR-ORG-07)
+        Route::post('museums/{museum}/slot-templates', [OrganizerSlotTemplateController::class, 'store'])
+            ->name('museums.slot-templates.store');
+        Route::patch('museums/{museum}/slot-templates/{slotTemplate}', [OrganizerSlotTemplateController::class, 'update'])
+            ->name('museums.slot-templates.update');
+        Route::delete('museums/{museum}/slot-templates/{slotTemplate}', [OrganizerSlotTemplateController::class, 'destroy'])
+            ->name('museums.slot-templates.destroy');
+
+        Route::get('museums/{museum}/schedule', [OrganizerScheduleController::class, 'index'])
+            ->name('museums.schedule');
+        Route::post('museums/{museum}/schedule/generate', [OrganizerScheduleController::class, 'generate'])
+            ->name('museums.schedule.generate');
+        Route::patch('museums/{museum}/schedule/slots/{slot}', [OrganizerScheduleController::class, 'updateSlotCapacity'])
+            ->name('museums.schedule.slots.update');
+
+        Route::post('museums/{museum}/slot-overrides', [OrganizerSlotCapacityOverrideController::class, 'store'])
+            ->name('museums.slot-overrides.store');
+        Route::delete('museums/{museum}/slot-overrides/{override}', [OrganizerSlotCapacityOverrideController::class, 'destroy'])
+            ->name('museums.slot-overrides.destroy');
+
+        // Fase 4 — pintu masuk modul Tiket & Jadwal Kuota.
+        Route::get('schedules', [OrganizerScheduleOverviewController::class, 'index'])
+            ->name('schedules.index');
     });
 
     // Admin Area

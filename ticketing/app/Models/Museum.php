@@ -166,6 +166,46 @@ class Museum extends Model
     }
 
     /**
+     * Jenis tiket yang dijual museum (FR-ORG-06).
+     *
+     * @return HasMany<TicketType, $this>
+     */
+    public function ticketTypes(): HasMany
+    {
+        return $this->hasMany(TicketType::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Cetakan slot berulang (FR-ORG-07).
+     *
+     * @return HasMany<SlotTemplate, $this>
+     */
+    public function slotTemplates(): HasMany
+    {
+        return $this->hasMany(SlotTemplate::class)->orderBy('sort_order');
+    }
+
+    /**
+     * Slot kunjungan yang dapat dipesan (inti kuota).
+     *
+     * @return HasMany<VisitSlot, $this>
+     */
+    public function visitSlots(): HasMany
+    {
+        return $this->hasMany(VisitSlot::class);
+    }
+
+    /**
+     * Override kuota per tanggal (FR-ORG-07).
+     *
+     * @return HasMany<SlotCapacityOverride, $this>
+     */
+    public function slotCapacityOverrides(): HasMany
+    {
+        return $this->hasMany(SlotCapacityOverride::class);
+    }
+
+    /**
      * Museum yang tampil di halaman publik (BR-01).
      *
      * @param  Builder<Museum>  $query
