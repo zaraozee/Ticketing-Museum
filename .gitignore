@@ -1,0 +1,26 @@
+# Root gitignore
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+
+# Ticketing app ignores
+ticketing/.env
+ticketing/.env.backup
+ticketing/.env.production
+ticketing/node_modules/
+ticketing/vendor/
+ticketing/public/build/
+ticketing/public/hot/
+ticketing/public/storage/
+ticketing/storage/*.key
+ticketing/storage/logs/*.log
+ticketing/storage/framework/cache/data/*
+ticketing/storage/framework/sessions/*
+ticketing/storage/framework/views/*
+ticketing/database/*.sqlite
+ticketing/database/*.sqlite-journal
+ticketing/.phpunit.cache/
+ticketing/.phpunit.result.cache
+
