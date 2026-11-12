@@ -62,6 +62,17 @@ Aplikasi ini adalah **platform pemesanan tiket museum online** berbasis **Progre
 | D-27 | Override kuota per tanggal disimpan di tabel **`slot_capacity_overrides`** (`museum_id`, `visit_date`, `start_time` nullable, `capacity`), bukan dengan mengubah `visit_slots.capacity` | `slots:generate` bersifat idempoten dan tidak boleh menimpa override. Override dibaca saat generate/regenerate; menghapus override mengembalikan kuota ke nilai template. UQ `(museum_id, visit_date, start_time)` dengan `COALESCE` untuk mode `daily` |
 | D-28 | `slots:generate` **idempoten** dan hanya membuat slot yang belum ada (`updateOrCreate` pada kunci `(museum_id, visit_date, start_time)`); tidak pernah menurunkan `capacity` slot yang sudah punya `reserved_count + sold_count` | Memenuhi acceptance criteria Fase 4 butir 1 dan BR-20. Slot yang sudah ada tidak dihapus agar booking lama tetap valid |
 
+### 1.1c Keputusan tambahan (Fase 5)
+
+| ID | Keputusan | Catatan |
+|---|---|---|
+| D-29 | Fase 5 **menerbitkan tiket** (tabel `tickets` + `TicketIssuer`) walau QR/scan/offline baru di Fase 6 | BR-07 mewajibkan tiket terbit dalam transaksi konfirmasi, dan AC-3 Fase 5 ("webhook duplikat tidak membuat tiket ganda") tidak dapat diuji tanpa tabel `tickets`. Fase 6 melengkapi token QR, halaman e-ticket, scanner, dan penyimpanan offline |
+| D-30 | Status tiket: **`active`, `used`, `void`, `expired`** (mengikuti §11.2), bukan `issued`/`used`/`void` seperti ERD §3.5 | §11.2 adalah state machine eksplisit dan satu-satunya tempat yang mendefinisikan transisi tiket; `issued` diganti `active` agar konsisten dengan tabel "kondisi terlarang" (`used → active`). ERD disesuaikan |
+| D-31 | Gateway pembayaran dikurung di balik **`MidtransClient` (interface)** dengan dua implementasi: `HttpMidtransClient` (dipakai bila kunci tersedia) dan `FakeMidtransClient` (pengujian) | Memenuhi §1.6 "logika gateway dikurung di `Services/Payment`". Pengujian tidak boleh bergantung jaringan; tanpa kredensial sandbox, `HttpMidtransClient` tidak pernah dipanggil diam-diam |
+| D-32 | `config/services.php` belum punya entri `midtrans` padahal `.env.example` sudah mendefinisikan 4 variabelnya | Ditambahkan di Fase 5 agar variabel benar-benar terbaca. Sebelumnya variabel tersebut tidak berpengaruh apa pun |
+| D-33 | Nominal uang disimpan sebagai **integer rupiah** (`bigint`), tidak pernah float | Konsisten dengan `ticket_types.price`; menghindari pembulatan pada perbandingan `gross_amount` (BR-11) |
+| D-34 | Token QR memakai **peta kunci** `TICKET_SIGNING_KEYS` (`kid => secret`) dengan format `MT1.<kid>.<uuid>.<sig>`, bukan satu nilai `APP_TICKET_SECRET` seperti ERD §5 | §11.3 dan `.env.example` (sejak Fase 1) sudah memakai bentuk peta agar kunci dapat **dirotasi** tanpa membuat seluruh tiket lama tidak valid. ERD §5 disesuaikan |
+
 ### 1.2 Di luar cakupan MVP (tahap lanjutan / opsional)
 
 Refund otomatis, reschedule booking, kode promo/voucher, tiket rombongan, nama pengunjung per tiket, kuota per jenis tiket, harga terjadwal (`ticket_prices`), review dan wishlist, web push FCM, login Facebook/TikTok, chatbot AI, mode scan offline, aplikasi native, payout/komisi ke museum.
@@ -777,7 +788,7 @@ Analisis lengkap (fungsi, alur, data, konfigurasi, risiko, alternatif, status MV
 | Installability | HTTPS wajib; manifest valid; service worker terdaftar. Android/desktop: tangkap `beforeinstallprompt` dan tampilkan tombol "Pasang Aplikasi". iOS: tampilkan petunjuk manual "Tambahkan ke Layar Utama" (iOS tidak memiliki prompt yang sama) **[Verifikasi]** |
 | Ikon dan splash | Satu set ikon dari sumber SVG; splash screen mengikuti `background_color` + ikon di Android; iOS memerlukan `apple-touch-icon` dan (opsional) gambar startup **[Verifikasi]** |
 | Responsive | Mobile-first (breakpoint Tailwind), area sentuh ≥ 44 px, dukungan *safe-area* |
-| Service worker | Dihasilkan Workbox (`vite-plugin-pwa`), pembaruan versi dengan prompt "Versi baru tersedia, muat ulang" agar tidak memutus alur checkout |
+| Service worker | Disajikan dari **root `/sw.js`** oleh `ServiceWorkerController` (header `Service-Worker-Allowed: /`, `Cache-Control: no-store`), dibangun Workbox lewat `vite-plugin-pwa` mode `injectManifest` dari `resources/js/sw.ts`; pembaruan versi dengan prompt "Versi baru tersedia, muat ulang" agar tidak memutus alur checkout |
 
 ### 15.2 Strategi cache
 
@@ -807,6 +818,23 @@ Analisis lengkap (fungsi, alur, data, konfigurasi, risiko, alternatif, status MV
 ### 15.4 Push notification
 
 Tahap lanjutan (FCM/Web Push). Persyaratan: izin pengguna eksplisit (jangan minta saat pertama membuka), `push_subscriptions` per perangkat, dan pada iOS hanya berfungsi untuk PWA yang dipasang ke layar utama (**[Verifikasi]** versi iOS dan perilaku terbaru). Di MVP, in-app notification + email mencukupi.
+
+### 15.5 Implementasi (status Fase 8)
+
+| Aspek | Implementasi |
+|---|---|
+| Manifest | `GET /manifest.webmanifest` → `Public\ManifestController`, dirender dari `config('app.name')`; `vite-plugin-pwa` dikonfigurasi `manifest: false` agar tidak ada manifest ganda. `name`, `short_name`, `start_url: "/"`, `display: "standalone"`, `lang: "id"`, `theme_color`/`background_color` dari `config('ticketing.pwa')`, ikon 192/512 px + varian *maskable*, `shortcuts` ke `/tickets` dan `/organizer/scanner` |
+| Ikon | Dibuat oleh `php artisan pwa:icons --force` (`GeneratePwaIconsCommand`) → `public/icons/icon-192.png`, `icon-512.png`, `maskable-192.png`, `maskable-512.png`. Keberadaan file diuji di `tests/Feature/PwaTest.php` |
+| Registrasi | `resources/js/pwa.ts`: `navigator.serviceWorker.register('/sw.js')`, `setupInstallPrompt()` menangkap `beforeinstallprompt` (Android/desktop) dan mendeteksi iOS untuk menampilkan petunjuk manual |
+| Rute service worker | Berurutan: (1) non-GET → `NetworkOnly`; (2) navigasi ke jalur sensitif → `fetch` tanpa cache + fallback halaman statis; (3) GET jalur sensitif → `NetworkOnly`; (4) gambar → `CacheFirst` (`jejak-museum-images-v1`); (5) navigasi halaman publik → `StaleWhileRevalidate` (`jejak-public-pages-v1`, fallback halaman offline bila belum pernah dikunjungi); (6) navigasi lain → `fetch` + fallback |
+| Jalur NetworkOnly | Daftar tunggal di `config('ticketing.pwa.network_only_paths')`; tes memverifikasi setiap jalur benar-benar muncul di bundel `public/build/sw.js` sehingga konfigurasi dan SW tidak bisa menyimpang |
+| Pembaruan | `SKIP_WAITING` hanya dikirim setelah pengguna menyetujui prompt; tidak ada auto-reload, jadi pembaruan tidak pernah memutus checkout (AC-4) |
+| Offline e-ticket | `resources/js/composables/offlineTickets.ts` menyimpan snapshot ke IndexedDB (`jejak-tickets` → `tickets`), termasuk `qr_data_url`. `/offline` dan `/offline/tickets` di-precache; keduanya blade statis (tanpa Inertia) dan `noindex` |
+| Logout | Menghapus database IndexedDB tiket sebelum `POST /logout` |
+| SEO | `resources/js/Components/SeoHead.vue` memakai `head-key` pada setiap tag; `app.blade.php` menyediakan meta baseline dengan atribut `data-inertia` yang sama sehingga Inertia mengganti (bukan menduplikasi) meta dan crawler tetap melihat default. `GET /sitemap.xml` dan `GET /robots.txt` dirender dinamis |
+| Hasil audit | Lighthouse 12 mobile (4G via proxy gzip): performance **97**, accessibility **100**, best-practices **100**, LCP **2040 ms**, CLS 0,0026, TBT 0 ms. Lighthouse 11 kategori PWA: **100** |
+
+> **Catatan:** Inertia SSR sengaja tidak dipakai. SEO ditangani meta server-side + `sitemap.xml`, dan SSR akan menambah proses Node di produksi tanpa manfaat terukur untuk MVP.
 
 ---
 

@@ -1,24 +1,38 @@
 <?php
 
 use App\Http\Controllers\Account\ProfileController;
+use App\Http\Controllers\Admin\AnomalyController as AdminAnomalyController;
 use App\Http\Controllers\Admin\ContentPageController as AdminContentPageController;
 use App\Http\Controllers\Admin\DashboardController as AdminDashboardController;
 use App\Http\Controllers\Admin\FacilityController as AdminFacilityController;
 use App\Http\Controllers\Admin\MuseumCategoryController as AdminMuseumCategoryController;
 use App\Http\Controllers\Admin\MuseumReviewController;
+use App\Http\Controllers\Admin\ReportController as AdminReportController;
+use App\Http\Controllers\BookingController;
+use App\Http\Controllers\MidtransWebhookController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Organizer\BookingController as OrganizerBookingController;
 use App\Http\Controllers\Organizer\DashboardController as OrganizerDashboardController;
+use App\Http\Controllers\Organizer\GateScannerController;
 use App\Http\Controllers\Organizer\MuseumClosedDateController;
 use App\Http\Controllers\Organizer\MuseumController as OrganizerMuseumController;
 use App\Http\Controllers\Organizer\MuseumImageController;
 use App\Http\Controllers\Organizer\MuseumSubmissionController;
+use App\Http\Controllers\Organizer\ReportController as OrganizerReportController;
 use App\Http\Controllers\Organizer\ScheduleController as OrganizerScheduleController;
 use App\Http\Controllers\Organizer\ScheduleOverviewController as OrganizerScheduleOverviewController;
 use App\Http\Controllers\Organizer\SlotCapacityOverrideController as OrganizerSlotCapacityOverrideController;
 use App\Http\Controllers\Organizer\SlotTemplateController as OrganizerSlotTemplateController;
+use App\Http\Controllers\Organizer\StaffController as OrganizerStaffController;
 use App\Http\Controllers\Organizer\TicketTypeController as OrganizerTicketTypeController;
 use App\Http\Controllers\Public\ContentPageController as PublicContentPageController;
 use App\Http\Controllers\Public\HomeController;
+use App\Http\Controllers\Public\ManifestController;
 use App\Http\Controllers\Public\MuseumController as PublicMuseumController;
+use App\Http\Controllers\Public\RobotsController;
+use App\Http\Controllers\Public\ServiceWorkerController;
+use App\Http\Controllers\Public\SitemapController;
+use App\Http\Controllers\Public\TicketController as PublicTicketController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', [HomeController::class, 'index'])->name('home');
@@ -31,11 +45,66 @@ Route::get('/museums/{museum}', [PublicMuseumController::class, 'show'])->name('
 Route::get('/bantuan', [PublicContentPageController::class, 'index'])->name('content.index');
 Route::get('/bantuan/{contentPage}', [PublicContentPageController::class, 'show'])->name('content.show');
 
+// Publik: sitemap untuk SEO (FR-PWA-01, NFR-16)
+Route::get('/sitemap.xml', [SitemapController::class, 'index'])->name('sitemap');
+
+// Publik: robots.txt dinamis agar URL sitemap absolut (NFR-16).
+Route::get('/robots.txt', RobotsController::class)->name('robots');
+
+/*
+ * PWA (Fase 8, FR-PWA-01..03).
+ *
+ * Manifest disajikan server agar `name` mengikuti `APP_NAME`. Service worker
+ * disajikan dari root (`/sw.js`) dengan header `Service-Worker-Allowed: /`
+ * supaya scope-nya mencakup seluruh aplikasi, bukan hanya `/build/`.
+ */
+Route::get('/manifest.webmanifest', ManifestController::class)->name('pwa.manifest');
+Route::get('/sw.js', ServiceWorkerController::class)->name('pwa.service-worker');
+
+// PWA: halaman fallback offline (FR-PWA-03)
+Route::get('/offline', function () {
+    return view('offline');
+})->name('offline');
+
+// PWA: daftar e-ticket offline dari IndexedDB (SYSTEM_DESIGN §15.3).
+Route::get('/offline/tickets', function () {
+    return view('offline-tickets');
+})->name('offline.tickets');
+
+/*
+ * Webhook pembayaran (FR-PAY-02, THIRD_PARTY §1.3).
+ *
+ * Di luar `auth` dan tanpa CSRF: pemanggilnya server Midtrans, bukan browser.
+ * Keamanan bergantung pada verifikasi signature di `WebhookProcessor`.
+ */
+Route::post('/webhooks/midtrans', MidtransWebhookController::class)
+    ->middleware('throttle:120,1')
+    ->name('webhooks.midtrans');
+
 Route::middleware('auth')->group(function () {
     // Profile Management
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
+    // My Tickets (FR-TIX-03...06)
+    Route::get('/tickets', [PublicTicketController::class, 'index'])->name('tickets.index');
+    Route::get('/tickets/{uuid}', [PublicTicketController::class, 'show'])->name('tickets.show');
+
+    // Notifications (FR-NTF-02)
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllRead');
+
+    // Fase 5 — pemesanan tiket (FR-BKG-01…09, FR-PAY-05)
+    Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+    Route::get('/museums/{museum}/book', [BookingController::class, 'create'])->name('bookings.create');
+    Route::post('/museums/{museum}/book', [BookingController::class, 'store'])->name('bookings.store');
+    Route::get('/bookings/{booking:uuid}', [BookingController::class, 'show'])->name('bookings.show');
+    Route::post('/bookings/{booking:uuid}/pay', [BookingController::class, 'pay'])->name('bookings.pay');
+    Route::post('/bookings/{booking:uuid}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+    // Polling status: baca-saja, tidak pernah menerima status dari klien (AC-8).
+    Route::get('/bookings/{booking:uuid}/status', [BookingController::class, 'status'])->name('bookings.status');
 
     // Organizer Area
     Route::middleware('role:organizer')->prefix('organizer')->name('organizer.')->group(function () {
@@ -91,6 +160,21 @@ Route::middleware('auth')->group(function () {
         // Fase 4 — pintu masuk modul Tiket & Jadwal Kuota.
         Route::get('schedules', [OrganizerScheduleOverviewController::class, 'index'])
             ->name('schedules.index');
+
+        // Fase 6 — Gate Scanner & Riwayat Scan
+        Route::get('scanner', [GateScannerController::class, 'scanner'])->name('gate.scanner');
+        Route::get('scans', [GateScannerController::class, 'history'])->name('gate.history');
+
+        // Fase 6 — Kelola Staf Gate
+        Route::get('museums/{museum}/staff', [OrganizerStaffController::class, 'index'])->name('museums.staff.index');
+        Route::post('museums/{museum}/staff', [OrganizerStaffController::class, 'store'])->name('museums.staff.store');
+        Route::patch('museums/{museum}/staff/{staff}', [OrganizerStaffController::class, 'update'])->name('museums.staff.update');
+        Route::delete('museums/{museum}/staff/{staff}', [OrganizerStaffController::class, 'destroy'])->name('museums.staff.destroy');
+
+        // Fase 7 — Bookings & Reports
+        Route::get('bookings', [OrganizerBookingController::class, 'index'])->name('bookings.index');
+        Route::get('reports', [OrganizerReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/export', [OrganizerReportController::class, 'export'])->name('reports.export');
     });
 
     // Admin Area
@@ -111,6 +195,14 @@ Route::middleware('auth')->group(function () {
             // Tabel admin mengirim primary key; ContentPage memakai slug sebagai
             // route key untuk halaman publik, jadi binding admin dipatok ke id.
             ->parameters(['content-pages' => 'contentPage:id']);
+
+        // Fase 6 — Antrean Anomali Pembayaran
+        Route::get('anomalies', [AdminAnomalyController::class, 'index'])->name('anomalies.index');
+        Route::patch('anomalies/{payment}/resolve', [AdminAnomalyController::class, 'resolve'])->name('anomalies.resolve');
+
+        // Fase 7 — Reports
+        Route::get('reports', [AdminReportController::class, 'index'])->name('reports.index');
+        Route::get('reports/export', [AdminReportController::class, 'export'])->name('reports.export');
     });
 });
 

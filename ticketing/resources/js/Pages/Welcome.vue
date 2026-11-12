@@ -1,36 +1,41 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import AppLayout from '../Layouts/AppLayout.vue';
+import SeoHead from '../Components/SeoHead.vue';
 </script>
 
 <template>
     <AppLayout>
-        <Head title="Pemesanan Tiket Museum Online" />
+        <SeoHead
+            title="Pemesanan Tiket Museum Online"
+            description="Pesan tiket museum secara instan, pilih slot kunjungan favoritmu, bayar dengan QRIS atau e-wallet, dan masuk dengan e-ticket QR terverifikasi."
+            canonical-path="/"
+        />
 
         <!-- Hero Section -->
-        <section class="relative bg-gradient-to-b from-blue-50/60 to-white py-16 sm:py-24 border-b border-slate-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-                <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 mb-6">
+        <section class="relative border-b border-slate-200 bg-gradient-to-b from-blue-50/60 to-white py-16 sm:py-24">
+            <div class="mx-auto max-w-7xl px-4 text-center sm:px-6 lg:px-8">
+                <span class="mb-6 inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
                     Platform Tiket Museum PWA
                 </span>
-                <h1 class="text-4xl sm:text-5xl font-extrabold text-slate-900 tracking-tight max-w-3xl mx-auto leading-tight">
-                    Jelajahi Sejarah & Budaya Nusantara Tanpa Antre
+                <h1 class="mx-auto max-w-3xl text-3xl font-extrabold leading-tight tracking-tight text-slate-900 sm:text-5xl">
+                    Jelajahi Sejarah &amp; Budaya Nusantara Tanpa Antre
                 </h1>
-                <p class="mt-4 text-lg text-slate-600 max-w-2xl mx-auto">
+                <p class="mx-auto mt-4 max-w-2xl text-base text-slate-600 sm:text-lg">
                     Pesan tiket museum secara instan, pilih slot kunjungan favoritmu, dan masuk dengan mudah menggunakan E-Ticket QR terverifikasi.
                 </p>
 
                 <!-- Action buttons -->
-                <div class="mt-8 flex flex-col sm:flex-row justify-center gap-3">
+                <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
                     <Link
                         href="/register"
-                        class="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold shadow-md shadow-blue-500/20 transition"
+                        class="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white shadow-md shadow-blue-500/20 transition hover:bg-blue-700"
                     >
                         Mulai Pesan Tiket
                     </Link>
                     <Link
                         href="/register/organizer"
-                        class="px-6 py-3 rounded-xl bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-semibold transition"
+                        class="rounded-xl border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
                     >
                         Gabung Sebagai Pengelola
                     </Link>
@@ -39,39 +44,39 @@ import AppLayout from '../Layouts/AppLayout.vue';
         </section>
 
         <!-- Feature Highlight Section -->
-        <section class="py-16 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="text-center mb-12">
-                <h2 class="text-2xl sm:text-3xl font-bold text-slate-900">Kenapa Memilih Jejak?</h2>
+        <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
+            <div class="mb-12 text-center">
+                <h2 class="text-2xl font-bold text-slate-900 sm:text-3xl">Kenapa Memilih Jejak?</h2>
                 <p class="mt-2 text-slate-600">Teknologi modern untuk kenyamanan pengunjung dan efisiensi pengelola museum.</p>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div class="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                    <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl mb-4">
+            <div class="grid grid-cols-1 gap-8 md:grid-cols-3">
+                <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-50 text-xl font-bold text-blue-600">
                         1
                     </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-2">Pilih Slot & Kuota Realtime</h3>
-                    <p class="text-sm text-slate-600 leading-relaxed">
+                    <h3 class="mb-2 text-lg font-bold text-slate-900">Pilih Slot &amp; Kuota Realtime</h3>
+                    <p class="text-sm leading-relaxed text-slate-600">
                         Kapasitas slot terkontrol dengan akurasi anti-overbooking untuk kenyamanan kunjungan museum yang terjaga.
                     </p>
                 </div>
 
-                <div class="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                    <div class="w-12 h-12 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xl mb-4">
+                <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-xl font-bold text-indigo-600">
                         2
                     </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-2">E-Ticket QR Terverifikasi</h3>
-                    <p class="text-sm text-slate-600 leading-relaxed">
+                    <h3 class="mb-2 text-lg font-bold text-slate-900">E-Ticket QR Terverifikasi</h3>
+                    <p class="text-sm leading-relaxed text-slate-600">
                         Tiket digital berstandar kriptografi HMAC aman, dapat dibuka offline saat di lokasi dan dipindai sekejap.
                     </p>
                 </div>
 
-                <div class="p-6 bg-white border border-slate-200 rounded-2xl shadow-sm">
-                    <div class="w-12 h-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-xl mb-4">
+                <div class="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-50 text-xl font-bold text-emerald-600">
                         3
                     </div>
-                    <h3 class="text-lg font-bold text-slate-900 mb-2">Pembayaran Instan & Otomatis</h3>
-                    <p class="text-sm text-slate-600 leading-relaxed">
+                    <h3 class="mb-2 text-lg font-bold text-slate-900">Pembayaran Instan &amp; Otomatis</h3>
+                    <p class="text-sm leading-relaxed text-slate-600">
                         Dukungan pembayaran QRIS, e-wallet, dan transfer bank terverifikasi otomatis dengan notifikasi real-time.
                     </p>
                 </div>

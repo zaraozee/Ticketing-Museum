@@ -410,7 +410,7 @@ Kolom: FK `booking_id`; `provider` (`midtrans`); **`provider_order_id` UQ** (mis
 | sequence | smallint | NN, urutan tiket dalam satu `booking_item` (1..quantity). **UQ (booking_item_id, sequence)** mencegah tiket ganda saat proses konfirmasi diulang |
 | museum_id, visit_slot_id | bigint | FK NN (didenormalisasi untuk validasi scan cepat) |
 | holder_name | varchar | null |
-| status | varchar | `issued`/`used`/`void` |
+| status | varchar | `active`/`used`/`void`/`expired` (D-30, §11.2) |
 | used_at, used_by | | null; `used_by` FK users |
 Index/constraint: `token_hash` UQ, `ticket_code` UQ, `(booking_item_id, sequence)` UQ, `(museum_id, visit_slot_id, status)`, `booking_id`.
 Konsekuensi menyimpan hash saja: e-ticket dirender ulang dari token yang **dihitung ulang via HMAC** (lihat §5), bukan dibaca dari database.
@@ -435,8 +435,8 @@ Konsekuensi menyimpan hash saja: e-ticket dirender ulang dari token yang **dihit
 
 1. Saat menerbitkan tiket, `ticket.uuid` dibuat dengan CSPRNG (UUID v4/ULID acak).
 2. Token dihitung dari uuid (langkah 3); simpan hanya `token_hash`; **jangan simpan token asli**.
-3. **Keputusan: token diturunkan via HMAC** (bukan acak murni): `token = base64url(HMAC_SHA256(APP_TICKET_SECRET, ticket.uuid))`. Server dapat menghitung ulang token untuk menampilkan e-ticket, tetapi pihak luar tidak dapat menebaknya tanpa secret. `token_hash = sha256(token)` disimpan hanya untuk **lookup saat scan**. Versi secret ditandai prefix (`MT1.` = secret v1); rotasi secret = terbitkan prefix baru dan terima prefix lama selama masa transisi. **Secret tidak boleh masuk repo.**
-4. Isi QR = `MT1.{token}` (tanpa data pribadi). Scanner hanya mengirim string itu.
+3. **Keputusan: token diturunkan via HMAC** (bukan acak murni), mengikuti SYSTEM_DESIGN §11.3 dan **D-34**: `token = MT1.<kid>.<uuid>.<sig>` dengan `sig = base64url(HMAC_SHA256(key[kid], "MT1." + uuid))` dipotong 22 karakter. Kunci disimpan sebagai **peta** `TICKET_SIGNING_KEYS` (`kid => secret`) sehingga rotasi cukup menambah `kid` baru dan menerima `kid` lama selama masa transisi. Server dapat menghitung ulang token untuk menampilkan e-ticket, tetapi pihak luar tidak dapat menebaknya tanpa kunci. `token_hash = sha256(token)` disimpan hanya untuk **lookup saat scan**. **Kunci tidak boleh masuk repo.**
+4. Isi QR = seluruh string token di atas (tanpa data pribadi). Scanner hanya mengirim string itu.
 
 ## 6. Mencegah Overbooking
 
@@ -510,7 +510,7 @@ User Rina memesan 2 Dewasa + 1 Pelajar untuk sesi 10:
 - `bookings`: `id=500, code=LWG-8F3K2A, status=pending_payment, total=60000, expires_at=+30m`; `VISIT_SLOTS.reserved_count` 2 → 5.
 - `booking_items`: `(500, type=1, "Dewasa", 25000, qty=2, 50000)`, `(500, type=2, "Pelajar", 10000, qty=1, 10000)`.
 - `payments`: `order_id=LWG-8F3K2A-1, gross_amount=60000, status=pending`.
-- Setelah bayar: `payments.status=paid`, `bookings.status=confirmed`, sesi `reserved=2, sold=51`, dan 3 baris `tickets` (`status=issued`).
+- Setelah bayar: `payments.status=paid`, `bookings.status=confirmed`, sesi `reserved=2, sold=51`, dan 3 baris `tickets` (`status=active`).
 - Saat scan pertama tiket #1: `tickets.status=used`; `ticket_scans.result=valid`. Scan kedua: `ticket_scans.result=already_used` (status tetap `used`).
 
 ## 9. Validasi Scan (rujukan implementasi)
@@ -544,13 +544,13 @@ Semua hasil, termasuk gagal, dicatat ke `ticket_scans` (insert-only).
 UPDATE tickets
    SET status = 'used', used_at = now(), used_by = :staff_id, updated_at = now()
  WHERE id = :ticket_id
-   AND status = 'issued';
+   AND status = 'active';
 -- affected rows = 1  => hasil VALID
 -- affected rows = 0  => ada scan lain yang menang lebih dulu:
 --                       baca ulang tiket, hasil = already_used
 ```
 
-Pemeriksaan di langkah 3-6 bersifat *fail-fast* untuk pesan yang tepat; **kebenaran** dijamin oleh klausa `WHERE status = 'issued'` pada langkah 9.3, sehingga dua scan bersamaan tidak mungkin sama-sama `valid`.
+Pemeriksaan di langkah 3-6 bersifat *fail-fast* untuk pesan yang tepat; **kebenaran** dijamin oleh klausa `WHERE status = 'active'` pada langkah 9.3, sehingga dua scan bersamaan tidak mungkin sama-sama `valid`.
 
 ### 9.4 Scan ulang akibat timeout jaringan
 

@@ -19,6 +19,12 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
 
+        // Webhook pembayaran datang dari server Midtrans, bukan browser:
+        // tidak ada sesi dan tidak ada token CSRF (THIRD_PARTY §1.3 langkah 1).
+        $middleware->validateCsrfTokens(except: [
+            'webhooks/midtrans',
+        ]);
+
         $middleware->alias([
             'role' => EnsureRole::class,
         ]);

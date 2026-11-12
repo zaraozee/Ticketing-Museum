@@ -206,6 +206,14 @@ class Museum extends Model
     }
 
     /**
+     * @return HasMany<Booking, $this>
+     */
+    public function bookings(): HasMany
+    {
+        return $this->hasMany(Booking::class);
+    }
+
+    /**
      * Museum yang tampil di halaman publik (BR-01).
      *
      * @param  Builder<Museum>  $query

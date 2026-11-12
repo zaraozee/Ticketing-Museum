@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link, router } from '@inertiajs/vue3';
-import { ref, watch } from 'vue';
+import { Link, router } from '@inertiajs/vue3';
+import { computed, ref, watch } from 'vue';
 import AppLayout from '../../../Layouts/AppLayout.vue';
+import SeoHead from '../../../Components/SeoHead.vue';
 
 interface MuseumCard {
     slug: string;
@@ -52,27 +53,42 @@ const resetFilters = () => {
     city.value = '';
     router.get('/museums', {}, { preserveState: true, replace: true });
 };
+
+/**
+ * Halaman hasil filter tidak diindeks agar tidak terjadi konten duplikat
+ * (NFR-16). Halaman katalog bersih memakai canonical `/museums`.
+ */
+const hasFilters = computed<boolean>(
+    () => props.filters.q !== '' || props.filters.category !== '' || props.filters.city !== '',
+);
 </script>
 
 <template>
     <AppLayout>
-        <Head title="Jelajah Museum" />
+        <SeoHead
+            title="Jelajah Museum"
+            description="Temukan museum, galeri, dan situs budaya di seluruh Indonesia. Cek jadwal kunjungan dan pesan tiket secara online."
+            canonical-path="/museums"
+            :noindex="hasFilters"
+        />
 
-        <section class="bg-gradient-to-b from-blue-50/70 to-white border-b border-slate-200">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14">
-                <h1 class="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight">Jelajah Museum</h1>
+        <section class="border-b border-slate-200 bg-gradient-to-b from-blue-50/70 to-white">
+            <div class="mx-auto max-w-7xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+                <h1 class="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">Jelajah Museum</h1>
                 <p class="mt-2 text-slate-600">Temukan museum, galeri, dan situs budaya yang bisa kamu kunjungi hari ini.</p>
 
-                <form class="mt-6 flex flex-col sm:flex-row gap-3" @submit.prevent="applyFilters">
+                <form class="mt-6 flex flex-col gap-3 sm:flex-row" @submit.prevent="applyFilters">
+                    <label class="sr-only" for="museum-search">Cari museum</label>
                     <input
+                        id="museum-search"
                         v-model="search"
                         type="search"
                         placeholder="Cari nama museum atau kota..."
-                        class="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none"
+                        class="flex-1 rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 focus:outline-none sm:text-sm"
                     />
                     <button
                         type="submit"
-                        class="rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                        class="min-h-[44px] rounded-xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
                     >
                         Cari
                     </button>
@@ -162,7 +178,7 @@ const resetFilters = () => {
                             {{ museum.city || 'Lokasi belum diisi' }}<span v-if="museum.province">, {{ museum.province }}</span>
                         </p>
                         <p class="mt-1 line-clamp-2 text-sm text-slate-600">{{ museum.excerpt }}</p>
-                        <span class="mt-auto pt-3 text-sm font-semibold text-blue-600">Lihat detail →</span>
+                        <span class="mt-auto pt-3 text-sm font-semibold text-blue-600">Lihat detail â†’</span>
                     </div>
                 </Link>
             </div>

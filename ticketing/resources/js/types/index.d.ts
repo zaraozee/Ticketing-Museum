@@ -1,27 +1,33 @@
-export interface User {
-    id: number;
-    uuid: string;
-    name: string;
-    email: string;
-    phone?: string | null;
-    roles: string[];
-    is_admin: boolean;
-    is_organizer: boolean;
-    organizer_profile?: {
-        organization_name: string;
-        status: 'pending' | 'approved' | 'suspended';
-    } | null;
-}
+/// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
+/**
+ * Tipe props bersama dari `HandleInertiaRequests`.
+ *
+ * `index signature` diperlukan agar tipe ini memenuhi constraint `PageProps`
+ * pada `usePage<T>()` di Inertia v3.
+ */
 export interface SharedProps {
-    appName: string;
+    [key: string]: unknown;
     auth: {
-        user: User | null;
+        user?: {
+            id: number;
+            name: string;
+            email: string;
+            phone?: string | null;
+            is_organizer?: boolean;
+            is_admin?: boolean;
+            organizer_profile?: {
+                id: number;
+                organization_name: string;
+                status: string;
+            } | null;
+        } | null;
     };
-    flash: {
+    appName?: string;
+    flash?: {
         success?: string | null;
         error?: string | null;
         status?: string | null;
     };
-    errors: Record<string, string>;
 }

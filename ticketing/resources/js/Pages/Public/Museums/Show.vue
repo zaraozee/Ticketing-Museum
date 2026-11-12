@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '../../../Layouts/AppLayout.vue';
+import SeoHead from '../../../Components/SeoHead.vue';
 
 interface MuseumImage {
     url: string;
@@ -65,14 +66,34 @@ const locationLine = computed(() => {
     const parts = [props.museum.address, props.museum.city, props.museum.province].filter(Boolean);
     return parts.join(', ');
 });
+
+/**
+ * Deskripsi meta dipotong Â±155 karakter agar tidak terpangkas mesin pencari.
+ */
+const seoDescription = computed<string>(() => {
+    const source = props.museum.description?.replace(/\s+/g, ' ').trim();
+
+    if (!source) {
+        return `Kunjungi ${props.museum.name}${props.museum.city ? ` di ${props.museum.city}` : ''}. Cek jadwal, harga tiket, dan pesan tiket online di Jejak.`;
+    }
+
+    return source.length > 155 ? `${source.slice(0, 152).trimEnd()}…` : source;
+});
+
+const seoImage = computed<string | null>(() => props.museum.images[0]?.url ?? null);
 </script>
 
 <template>
     <AppLayout>
-        <Head :title="museum.name" />
+        <SeoHead
+            :title="museum.name"
+            :description="seoDescription"
+            :image="seoImage"
+            :canonical-path="`/museums/${museum.slug}`"
+        />
 
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <Link href="/museums" class="text-sm font-medium text-blue-600 hover:underline">← Kembali ke daftar museum</Link>
+        <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+            <Link href="/museums" class="text-sm font-medium text-blue-600 hover:underline">â† Kembali ke daftar museum</Link>
 
             <div class="mt-4 grid grid-cols-1 gap-8 lg:grid-cols-3">
                 <!-- Galeri -->
@@ -137,20 +158,22 @@ const locationLine = computed(() => {
                     <!-- Jam operasional -->
                     <section v-if="museum.operating_hours.length" class="mt-10">
                         <h2 class="text-lg font-bold text-slate-900">Jam Operasional</h2>
-                        <table class="mt-3 w-full overflow-hidden rounded-xl border border-slate-200 text-sm">
-                            <tbody>
-                                <tr v-for="hour in museum.operating_hours" :key="hour.day" class="border-b border-slate-100 last:border-0">
-                                    <th class="w-32 bg-slate-50 px-4 py-2 text-left font-medium text-slate-600">{{ hour.day }}</th>
-                                    <td class="px-4 py-2 text-slate-700">
-                                        <span v-if="hour.is_closed" class="font-medium text-rose-600">Tutup</span>
-                                        <span v-else>{{ hour.open_time }} – {{ hour.close_time }}</span>
-                                    </td>
-                                </tr>
-                            </tbody>
-                        </table>
+                        <div class="mt-3 overflow-x-auto">
+                            <table class="w-full overflow-hidden rounded-xl border border-slate-200 text-sm">
+                                <tbody>
+                                    <tr v-for="hour in museum.operating_hours" :key="hour.day" class="border-b border-slate-100 last:border-0">
+                                        <th class="w-32 bg-slate-50 px-4 py-2 text-left font-medium text-slate-600">{{ hour.day }}</th>
+                                        <td class="px-4 py-2 text-slate-700">
+                                            <span v-if="hour.is_closed" class="font-medium text-rose-600">Tutup</span>
+                                            <span v-else>{{ hour.open_time }} – {{ hour.close_time }}</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
                     </section>
 
-                    <!-- Video YouTube (facade, THIRD_PARTY §6) -->
+                    <!-- Video YouTube (facade, THIRD_PARTY Â§6) -->
                     <section v-if="museum.youtube_video_id" class="mt-10">
                         <h2 class="text-lg font-bold text-slate-900">Video Profil</h2>
                         <div class="mt-3 aspect-video overflow-hidden rounded-2xl border border-slate-200 bg-slate-900">
@@ -177,7 +200,7 @@ const locationLine = computed(() => {
                                     loading="lazy"
                                 />
                                 <span class="absolute inset-0 flex items-center justify-center">
-                                    <span class="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-2xl text-slate-900 shadow-lg">▶</span>
+                                    <span class="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-2xl text-slate-900 shadow-lg">â–¶</span>
                                 </span>
                             </button>
                         </div>
@@ -210,16 +233,16 @@ const locationLine = computed(() => {
                                 </li>
                             </ul>
 
-                            <p class="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                                Pemesanan tiket dibuka pada fase berikutnya. Saat ini kamu dapat melihat informasi museum.
-                            </p>
-                            <button
-                                type="button"
-                                disabled
-                                class="mt-4 w-full cursor-not-allowed rounded-xl bg-slate-200 px-4 py-3 text-sm font-semibold text-slate-500"
+                            <Link
+                                v-if="ticketTypes.length"
+                                :href="`/museums/${museum.slug}/book`"
+                                class="mt-4 block w-full rounded-xl bg-blue-600 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-blue-700"
                             >
-                                Pesan Tiket (segera hadir)
-                            </button>
+                                Pesan Tiket
+                            </Link>
+                            <p v-else class="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                Museum ini belum membuka penjualan tiket.
+                            </p>
                         </div>
 
                         <div v-if="directionsUrl || embedUrl" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

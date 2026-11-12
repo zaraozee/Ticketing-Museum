@@ -62,52 +62,54 @@ const formatDate = (value: string | null): string => {
         </div>
 
         <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-            <table class="w-full text-left text-sm">
-                <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                    <tr>
-                        <th class="px-4 py-3">Museum</th>
-                        <th class="px-4 py-3">Organizer</th>
-                        <th class="px-4 py-3">Kategori</th>
-                        <th class="px-4 py-3">Diajukan</th>
-                        <th class="px-4 py-3">Status</th>
-                        <th class="px-4 py-3"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr v-for="museum in props.museums.data" :key="museum.id" class="border-t border-slate-100">
-                        <td class="px-4 py-3">
-                            <div class="flex items-center gap-3">
-                                <div class="h-10 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                                    <img v-if="museum.cover_url" :src="museum.cover_url" :alt="museum.name" class="h-full w-full object-cover" />
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm min-w-[36rem]">
+                    <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                            <th class="px-4 py-3">Museum</th>
+                            <th class="px-4 py-3">Organizer</th>
+                            <th class="px-4 py-3">Kategori</th>
+                            <th class="px-4 py-3">Diajukan</th>
+                            <th class="px-4 py-3">Status</th>
+                            <th class="px-4 py-3"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="museum in props.museums.data" :key="museum.id" class="border-t border-slate-100">
+                            <td class="px-4 py-3">
+                                <div class="flex items-center gap-3">
+                                    <div class="h-10 w-14 flex-shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                                        <img v-if="museum.cover_url" :src="museum.cover_url" :alt="museum.name" class="h-full w-full object-cover" />
+                                    </div>
+                                    <div>
+                                        <p class="font-semibold text-slate-900">{{ museum.name }}</p>
+                                        <p class="text-xs text-slate-500">{{ museum.city || '-' }}</p>
+                                    </div>
                                 </div>
-                                <div>
-                                    <p class="font-semibold text-slate-900">{{ museum.name }}</p>
-                                    <p class="text-xs text-slate-500">{{ museum.city || '-' }}</p>
-                                </div>
-                            </div>
-                        </td>
-                        <td class="px-4 py-3 text-slate-600">{{ museum.organizer || '-' }}</td>
-                        <td class="px-4 py-3 text-slate-600">{{ museum.category || '-' }}</td>
-                        <td class="px-4 py-3 text-xs text-slate-500">{{ formatDate(museum.submitted_at) }}</td>
-                        <td class="px-4 py-3">
-                            <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
-                                {{ museum.status_label }}
-                            </span>
-                        </td>
-                        <td class="px-4 py-3 text-right">
-                            <Link
-                                :href="`/admin/museums/${museum.slug}`"
-                                class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
-                            >
-                                Tinjau
-                            </Link>
-                        </td>
-                    </tr>
-                    <tr v-if="props.museums.data.length === 0">
-                        <td colspan="6" class="px-4 py-10 text-center text-slate-500">Tidak ada museum pada status ini.</td>
-                    </tr>
-                </tbody>
-            </table>
+                            </td>
+                            <td class="px-4 py-3 text-slate-600">{{ museum.organizer || '-' }}</td>
+                            <td class="px-4 py-3 text-slate-600">{{ museum.category || '-' }}</td>
+                            <td class="px-4 py-3 text-xs text-slate-500">{{ formatDate(museum.submitted_at) }}</td>
+                            <td class="px-4 py-3">
+                                <span class="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
+                                    {{ museum.status_label }}
+                                </span>
+                            </td>
+                            <td class="px-4 py-3 text-right">
+                                <Link
+                                    :href="`/admin/museums/${museum.slug}`"
+                                    class="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                                >
+                                    Tinjau
+                                </Link>
+                            </td>
+                        </tr>
+                        <tr v-if="props.museums.data.length === 0">
+                            <td colspan="6" class="px-4 py-10 text-center text-slate-500">Tidak ada museum pada status ini.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
 
         <nav v-if="props.museums.links.length > 3" class="mt-6 flex flex-wrap items-center justify-center gap-1">

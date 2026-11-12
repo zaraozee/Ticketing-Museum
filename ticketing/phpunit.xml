@@ -31,6 +31,10 @@
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
+        <!-- Kunci HMAC khusus pengujian (SYSTEM_DESIGN §11.3). Bukan rahasia
+             produksi; hanya dipakai agar tiket dapat diterbitkan saat tes. -->
+        <env name="TICKET_SIGNING_KEYS" value='{"MT1":"test-only-ticket-signing-key-0123456789abcdef"}'/>
+        <env name="TICKET_ACTIVE_KID" value="MT1"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
     </php>
 </phpunit>

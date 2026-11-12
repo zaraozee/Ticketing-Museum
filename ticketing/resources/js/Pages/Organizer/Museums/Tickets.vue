@@ -214,53 +214,55 @@ const destroy = (row: TicketTypeRow): void => {
             <!-- Table -->
             <div class="lg:col-span-3">
                 <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                    <table class="w-full text-left text-sm">
-                        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                            <tr>
-                                <th class="px-4 py-3">Nama</th>
-                                <th class="px-4 py-3">Harga</th>
-                                <th class="px-4 py-3">Usia</th>
-                                <th class="px-4 py-3">Status</th>
-                                <th class="px-4 py-3 text-right">Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-100">
-                            <tr v-for="row in ticketTypes" :key="row.id" class="hover:bg-slate-50">
-                                <td class="px-4 py-3">
-                                    <div class="font-semibold text-slate-900">{{ row.name }}</div>
-                                    <div v-if="row.description" class="text-xs text-slate-500">{{ row.description }}</div>
-                                </td>
-                                <td class="px-4 py-3 text-slate-700">{{ row.price_label }}</td>
-                                <td class="px-4 py-3 text-slate-600">
-                                    <span v-if="row.min_age === null && row.max_age === null">—</span>
-                                    <span v-else>{{ row.min_age ?? 0 }}–{{ row.max_age ?? '∞' }} th</span>
-                                </td>
-                                <td class="px-4 py-3">
-                                    <span
-                                        class="rounded-full border px-2.5 py-0.5 text-xs font-semibold"
-                                        :class="row.is_active
-                                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                            : 'bg-slate-100 text-slate-600 border-slate-200'"
-                                    >
-                                        {{ row.is_active ? 'Aktif' : 'Nonaktif' }}
-                                    </span>
-                                </td>
-                                <td class="px-4 py-3 text-right">
-                                    <button type="button" class="text-xs font-semibold text-blue-600 hover:underline" @click="startEdit(row)">
-                                        Ubah
-                                    </button>
-                                    <button type="button" class="ml-3 text-xs font-semibold text-rose-600 hover:underline" @click="destroy(row)">
-                                        Hapus
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr v-if="ticketTypes.length === 0">
-                                <td colspan="5" class="px-4 py-10 text-center text-sm text-slate-500">
-                                    Belum ada jenis tiket. Tambahkan minimal satu agar museum dapat dijual.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-sm min-w-[36rem]">
+                            <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                                <tr>
+                                    <th class="px-4 py-3">Nama</th>
+                                    <th class="px-4 py-3">Harga</th>
+                                    <th class="px-4 py-3">Usia</th>
+                                    <th class="px-4 py-3">Status</th>
+                                    <th class="px-4 py-3 text-right">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100">
+                                <tr v-for="row in ticketTypes" :key="row.id" class="hover:bg-slate-50">
+                                    <td class="px-4 py-3">
+                                        <div class="font-semibold text-slate-900">{{ row.name }}</div>
+                                        <div v-if="row.description" class="text-xs text-slate-500">{{ row.description }}</div>
+                                    </td>
+                                    <td class="px-4 py-3 text-slate-700">{{ row.price_label }}</td>
+                                    <td class="px-4 py-3 text-slate-600">
+                                        <span v-if="row.min_age === null && row.max_age === null">—</span>
+                                        <span v-else>{{ row.min_age ?? 0 }}–{{ row.max_age ?? '∞' }} th</span>
+                                    </td>
+                                    <td class="px-4 py-3">
+                                        <span
+                                            class="rounded-full border px-2.5 py-0.5 text-xs font-semibold"
+                                            :class="row.is_active
+                                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                : 'bg-slate-100 text-slate-600 border-slate-200'"
+                                        >
+                                            {{ row.is_active ? 'Aktif' : 'Nonaktif' }}
+                                        </span>
+                                    </td>
+                                    <td class="px-4 py-3 text-right">
+                                        <button type="button" class="text-xs font-semibold text-blue-600 hover:underline" @click="startEdit(row)">
+                                            Ubah
+                                        </button>
+                                        <button type="button" class="ml-3 text-xs font-semibold text-rose-600 hover:underline" @click="destroy(row)">
+                                            Hapus
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr v-if="ticketTypes.length === 0">
+                                    <td colspan="5" class="px-4 py-10 text-center text-sm text-slate-500">
+                                        Belum ada jenis tiket. Tambahkan minimal satu agar museum dapat dijual.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>

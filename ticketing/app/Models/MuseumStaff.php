@@ -48,4 +48,12 @@ class MuseumStaff extends Model
     {
         return $this->belongsTo(User::class);
     }
+
+    /**
+     * @return BelongsTo<Museum, $this>
+     */
+    public function museum(): BelongsTo
+    {
+        return $this->belongsTo(Museum::class);
+    }
 }

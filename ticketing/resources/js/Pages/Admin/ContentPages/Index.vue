@@ -118,37 +118,39 @@ const destroy = (row: PageRow) => {
             </div>
 
             <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-                <table class="w-full text-left text-sm">
-                    <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
-                        <tr>
-                            <th class="px-4 py-3">Judul</th>
-                            <th class="px-4 py-3">Jenis</th>
-                            <th class="px-4 py-3">Status</th>
-                            <th class="px-4 py-3"></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="row in props.pages" :key="row.id" class="border-t border-slate-100">
-                            <td class="px-4 py-3">
-                                <p class="font-medium text-slate-900">{{ row.title }}</p>
-                                <p class="text-xs text-slate-500">/{{ row.slug }}</p>
-                            </td>
-                            <td class="px-4 py-3 text-slate-600">{{ row.type_label }}</td>
-                            <td class="px-4 py-3">
-                                <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="row.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
-                                    {{ row.is_published ? 'Tayang' : 'Draf' }}
-                                </span>
-                            </td>
-                            <td class="px-4 py-3 text-right">
-                                <button type="button" class="text-xs font-semibold text-blue-600 hover:underline" @click="startEdit(row)">Ubah</button>
-                                <button type="button" class="ml-3 text-xs font-semibold text-rose-600 hover:underline" @click="destroy(row)">Hapus</button>
-                            </td>
-                        </tr>
-                        <tr v-if="props.pages.length === 0">
-                            <td colspan="4" class="px-4 py-10 text-center text-slate-500">Belum ada halaman konten.</td>
-                        </tr>
-                    </tbody>
-                </table>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-sm min-w-[36rem]">
+                        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                            <tr>
+                                <th class="px-4 py-3">Judul</th>
+                                <th class="px-4 py-3">Jenis</th>
+                                <th class="px-4 py-3">Status</th>
+                                <th class="px-4 py-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="row in props.pages" :key="row.id" class="border-t border-slate-100">
+                                <td class="px-4 py-3">
+                                    <p class="font-medium text-slate-900">{{ row.title }}</p>
+                                    <p class="text-xs text-slate-500">/{{ row.slug }}</p>
+                                </td>
+                                <td class="px-4 py-3 text-slate-600">{{ row.type_label }}</td>
+                                <td class="px-4 py-3">
+                                    <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="row.is_published ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'">
+                                        {{ row.is_published ? 'Tayang' : 'Draf' }}
+                                    </span>
+                                </td>
+                                <td class="px-4 py-3 text-right">
+                                    <button type="button" class="text-xs font-semibold text-blue-600 hover:underline" @click="startEdit(row)">Ubah</button>
+                                    <button type="button" class="ml-3 text-xs font-semibold text-rose-600 hover:underline" @click="destroy(row)">Hapus</button>
+                                </td>
+                            </tr>
+                            <tr v-if="props.pages.length === 0">
+                                <td colspan="4" class="px-4 py-10 text-center text-slate-500">Belum ada halaman konten.</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </AdminLayout>

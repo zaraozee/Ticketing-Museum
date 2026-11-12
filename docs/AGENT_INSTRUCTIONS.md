@@ -4,7 +4,7 @@
 
 ## Aturan Utama
 
-1. **Baca dulu** semua file di `docs/` sebelum menulis kode: `SYSTEM_DESIGN.md`, `ERD.md`, `UML.md`, `THIRD_PARTY_INTEGRATIONS.md`, `ROADMAP.md`.
+1. **Baca dulu** semua file di `docs/` sebelum menulis kode: `SYSTEM_DESIGN_README.md` (kemudian baca bagian yang relevan: 01_OVERVIEW, 02_REQUIREMENTS, 03_ARCHITECTURE, 04_IMPLEMENTATION), `ERD.md`, `UML.md`, `THIRD_PARTY_INTEGRATIONS.md`, `ROADMAP.md`.
 2. **Kerjakan satu fase per sesi**, sesuai `ROADMAP.md`. Jangan mengerjakan fase berikutnya sebelum saya menyetujui.
 3. **Dokumen adalah sumber kebenaran.** Jangan mengubah desain (skema, status, aturan bisnis, arsitektur) tanpa bertanya. Jika menemukan konflik atau celah, **berhenti dan tanyakan**, jangan menebak.
 4. **Jangan menambah fitur di luar fase aktif** (tandai L/O di SYSTEM_DESIGN §7 = jangan dikerjakan di MVP).

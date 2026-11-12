@@ -29,6 +29,11 @@ class AppSettingSeeder extends Seeder
                 'description' => 'Rentang hari pemesanan ke depan yang diizinkan',
             ],
             [
+                'key' => 'sales_cutoff_minutes',
+                'value' => '30',
+                'description' => 'Penjualan tiket ditutup sekian menit sebelum slot dimulai (BR-04)',
+            ],
+            [
                 'key' => 'entry_grace_minutes',
                 'value' => '15',
                 'description' => 'Toleransi waktu kedatangan tiket (menit)',

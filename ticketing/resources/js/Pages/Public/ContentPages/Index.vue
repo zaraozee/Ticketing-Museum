@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { Head, Link } from '@inertiajs/vue3';
+import { Link } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import AppLayout from '../../../Layouts/AppLayout.vue';
+import SeoHead from '../../../Components/SeoHead.vue';
 
 interface FaqItem {
     title: string;
@@ -25,7 +26,11 @@ const toggle = (slug: string) => {
 
 <template>
     <AppLayout>
-        <Head title="Bantuan" />
+        <SeoHead
+            title="Bantuan &amp; FAQ"
+            description="Pertanyaan umum seputar pemesanan tiket museum, pembayaran, pembatalan, dan kunjungan."
+            canonical-path="/bantuan"
+        />
 
         <div class="mx-auto max-w-4xl px-4 py-10 sm:px-6 lg:px-8">
             <h1 class="text-3xl font-extrabold tracking-tight text-slate-900">Bantuan</h1>
@@ -42,7 +47,7 @@ const toggle = (slug: string) => {
                             @click="toggle(faq.slug)"
                         >
                             <span class="text-sm font-semibold text-slate-900">{{ faq.title }}</span>
-                            <span class="text-slate-400">{{ openSlug === faq.slug ? '−' : '+' }}</span>
+                            <span class="text-slate-400">{{ openSlug === faq.slug ? 'âˆ’' : '+' }}</span>
                         </button>
                         <div v-show="openSlug === faq.slug" class="px-5 pb-4 text-sm leading-relaxed whitespace-pre-line text-slate-700">
                             {{ faq.content || 'Jawaban belum tersedia.' }}

@@ -5,7 +5,7 @@ import type { SharedProps } from '../types';
 
 const page = usePage<SharedProps>();
 const appName = computed(() => page.props.appName || 'Jejak');
-const flash = computed(() => page.props.flash);
+const flash = computed(() => page.props.flash ?? {});
 </script>
 
 <template>

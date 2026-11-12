@@ -100,6 +100,23 @@ Keputusan yang diambil: D-26 (nama tabel/kolom), D-27 (tabel override terpisah),
 | **Deliverable** | Alur booking → bayar (sandbox) → `confirmed`; seluruh transisi status sesuai `SYSTEM_DESIGN.md` §11.2 |
 | **Acceptance criteria** | (1) Dua pengguna memesan kuota terakhir → satu berhasil, satu 409. (2) Webhook duplikat tidak membuat transaksi/tiket ganda. (3) Signature salah → 403 dan tidak ada perubahan status. (4) Pembayaran sukses saat browser ditutup tetap mengonfirmasi booking. (5) Booking kedaluwarsa melepas kuota. (6) `gross_amount` tidak cocok → `needs_review`. (7) Pembayaran terlambat setelah `expired` mengikuti BR-23. (8) Status pembayaran tidak pernah ditentukan oleh parameter redirect/frontend. |
 
+**Status: selesai.** Catatan implementasi:
+
+| AC | Bukti |
+|---|---|
+| 1 | `tests/Feature/Organizer/QuotaConcurrencyTest.php` — constraint DB + locking mencegah overbooking |
+| 2 | `tests/Feature/Public/PaymentWebhookTest.php` — webhook duplikat idempoten, tiket hanya terbit sekali |
+| 3 | `tests/Feature/Public/PaymentWebhookTest.php` — signature invalid → 403, status tidak berubah |
+| 4 | Webhook server-to-server sebagai sumber kebenaran; status tidak bergantung frontend |
+| 5 | Command `bookings:expire` melepas `reserved_count` untuk booking `expired` |
+| 6 | `WebhookProcessor` tandai anomali amount; admin review manual |
+| 7 | BR-23 diimplementasi: pembayaran terlambat coba pesan ulang, bila gagal masuk antrean anomali |
+| 8 | Endpoint `/api/v1/bookings/{id}/status` baca-saja; mutasi hanya di `ProcessPaymentWebhook` job |
+
+Keputusan tambahan: D-29 (tiket terbit di Fase 5), D-30 (status tiket `active|used|void|expired`), D-31 (`MidtransClient` interface + fake), D-32 (`config/services.php` entri midtrans), D-33 (integer rupiah), D-34 (token QR rotasi kunci).
+
+Bug diperbaiki: `ScanService::resolveTicket()` query kolom `uuid` (bukan `public_id`). Tes `ScanServiceTest` adjusted: slot hari ini + mode `timed_slot` agar dalam jendela waktu.
+
 ## Fase 6 — E-ticket dan QR scanner
 
 | | |
@@ -109,6 +126,30 @@ Keputusan yang diambil: D-26 (nama tabel/kolom), D-27 (tabel override terpisah),
 | **Ketergantungan** | Fase 5 |
 | **Deliverable** | Tiket terbit di transaksi konfirmasi; PWA scanner; riwayat scan |
 | **Acceptance criteria** | (1) Satu tiket per orang, kode unik. (2) Tiket sama dipindai dua kali (juga bersamaan) → satu `valid`, sisanya `already_used`. (3) Petugas museum A memindai tiket museum B → `wrong_museum`. (4) Token yang dimodifikasi → `invalid`. (5) Retry dengan `client_scan_uuid` sama mengembalikan hasil awal. (6) Tiket yang pernah dibuka tampil offline dengan label "Tidak terverifikasi". (7) Scanner berfungsi di minimal satu perangkat Android dan satu iOS (uji nyata). |
+
+**Status: backend selesai, frontend dasar selesai.** Catatan implementasi:
+
+| AC | Bukti |
+|---|---|
+| 1 | `TicketIssuer` terbit di transaksi konfirmasi; `ticket_code` 10 char Crockford base32 unik |
+| 2 | `ScanService` + `QuotaConcurrencyTest` scan bersamaan; `UPDATE WHERE status='active'` atomik |
+| 3 | `ScanService::scan()` cek `museum_id` → `WRONG_MUSEUM` |
+| 4 | `TicketTokenSigner::verify()` HMAC-SHA256; token modifikasi → `INVALID` |
+| 5 | `TicketScan` unique `client_scan_uuid`; retry mengembalikan hasil awal |
+| 6 | IndexedDB di `Tickets/Show.vue` simpan QR + data tiket untuk offline; label "Tidak terverifikasi" diselesaikan di Fase 8 |
+| 7 | Uji nyata perangkat belum dilakukan (Fase 9) |
+
+Frontend yang dibuat:
+- `Public/Tickets/Index.vue` — daftar tiket pengguna
+- `Public/Tickets/Show.vue` — detail e-ticket + QR client-side + IndexedDB + Google Calendar link
+- `Organizer/Gate/Scanner.vue` — scanner kamera (jsQR) + input manual + 7 hasil berwarna
+- `Organizer/Gate/History.vue` — riwayat scan per museum
+- `Organizer/Staff/Index.vue` — kelola staf gate (tambah/aktifkan/hapus)
+- `Admin/Anomalies/Index.vue` — antrean anomali pembayaran (BR-23, BR-11)
+
+Bug diperbaiki: `ScanController` pakai `$user->hasRole()` (Spatie), `$museum->organizer_profile_id`, `$ticket->uuid`. API route middleware `auth` (bukan `auth:sanctum`) untuk kompatibilitas session Inertia.
+
+**Sisa Fase 6:** uji nyata perangkat (AC-7, ditangguhkan ke Fase 9). Label "Tidak terverifikasi" untuk tiket offline (AC-6) **selesai di Fase 8** — lihat `offlineStatusLabel()` di `resources/js/composables/offlineTickets.ts` dan halaman `/offline/tickets`.
 
 ## Fase 7 — Dashboard, laporan, dan notifikasi
 
@@ -120,6 +161,28 @@ Keputusan yang diambil: D-26 (nama tabel/kolom), D-27 (tabel override terpisah),
 | **Deliverable** | Dashboard dan laporan; email transaksional terkirim lewat queue; in-app notification |
 | **Acceptance criteria** | (1) Angka dashboard cocok dengan data sumber (uji rekonsiliasi sampel). (2) Organizer tidak dapat melihat data museum lain di laporan. (3) Email gagal di-retry dan tercatat di `email_logs`. (4) Pengingat H-1 terkirim sekali per booking. (5) Ekspor CSV tidak memuat data di luar kepemilikan. |
 
+**Status: selesai (dashboard, laporan, notifikasi in-app).** Catatan implementasi:
+
+| AC | Bukti |
+|---|---|
+| 1 | `Organizer/DashboardController` — stats real dari query Booking/Ticket/TicketScan; `Admin/DashboardController` — stats real platform |
+| 2 | `Organizer/ReportController` + `BookingController` — query di-scope `organizer_profile_id`; CSV export `firstOrFail` validasi kepemilikan |
+| 3 | Tabel `email_logs` migration + model siap; integrasi retry queue = Fase 9 (deployment) |
+| 4 | Tabel `notifications` siap; job pengingat H-1 = Fase 9 (scheduler produksi) |
+| 5 | `ReportController::export()` — query scoped per museum organizer; `Admin/ReportController::export()` — optional filter museum |
+
+Frontend yang dibuat:
+- `Organizer/Dashboard.vue` — stats real (museum, booking hari ini, pendapatan, scan) + recent bookings
+- `Organizer/Bookings/Index.vue` — daftar booking dengan filter status/museum
+- `Organizer/Reports/Index.vue` — laporan penjualan + daftar pengunjung + ekspor CSV
+- `Admin/Dashboard.vue` — stats platform (users, organizers, museums, revenue, anomalies) + recent bookings + activity logs
+- `Admin/Reports/Index.vue` — laporan lintas museum + revenue per museum (bar chart) + ekspor CSV
+- `Account/Notifications.vue` — daftar notifikasi in-app + mark as read
+
+Tabel baru: `notifications` (UUID PK, user_id, type, title, body, data, read_at), `email_logs` (user_id, mailable, subject, to_email, status, attempts, error_message).
+
+**Sisa Fase 7:** integrasi email transaksional via queue (FR-NTF-01) dan job pengingat H-1 (FR-NTF-03) ditangguhkan ke Fase 9 (deployment dengan Supervisor + scheduler produksi).
+
 ## Fase 8 — PWA dan optimasi mobile
 
 | | |
@@ -129,6 +192,53 @@ Keputusan yang diambil: D-26 (nama tabel/kolom), D-27 (tabel override terpisah),
 | **Ketergantungan** | Fase 3–7 |
 | **Deliverable** | PWA installable; laporan Lighthouse; panduan instal |
 | **Acceptance criteria** | (1) Lulus kriteria installability (Lighthouse/DevTools). (2) Halaman checkout/status/scan tidak pernah dilayani dari cache (NetworkOnly). (3) E-ticket offline sesuai §15.3. (4) Pembaruan service worker tidak memutus checkout. (5) LCP ≤ 2,5 s pada profil 4G uji. (6) Navigasi dan form dapat dipakai pada 360 px. |
+
+**Status: selesai.** Catatan implementasi:
+
+| AC | Bukti |
+|---|---|
+| 1 | Lighthouse 11 kategori **PWA = 100**; audit `installable-manifest`, `maskable-icon`, `splash-screen`, `themed-omnibox`, `viewport` semuanya skor 1. Manifest disajikan server-side oleh `ManifestController` dari `APP_NAME`; `tests/Feature/PwaTest.php` memverifikasi field, ikon di disk, dan `shortcuts` |
+| 2 | `resources/js/sw.ts`: rute non-GET → `NetworkOnly`; navigasi ke `config('ticketing.pwa.network_only_paths')` → `fetch` langsung (tanpa cache) dengan fallback halaman statis; GET ke jalur sensitif → `NetworkOnly`. Kontrak "setiap jalur sensitif benar-benar muncul di bundel SW" diuji oleh `PwaTest::the_built_service_worker_never_caches_sensitive_paths`. Uji offline nyata (DevTools Protocol, upstream dimatikan): `/tickets` menampilkan halaman fallback, **bukan** dokumen Inertia dari cache |
+| 3 | E-ticket tersimpan di IndexedDB (`jejak-tickets`/`tickets`) berisi payload QR + data tiket; `/offline/tickets` merender QR dari `data:` URL dengan label **"Tidak terverifikasi — terakhir diperbarui …"**. Diuji di `PwaTest` (halaman fallback di-precache) dan uji DevTools (baris IndexedDB + `img[src^="data:image"]` ada) |
+| 4 | Pembaruan bersifat **prompt-only**: `skipWaiting()` hanya dipanggil setelah pengguna menekan "Muat ulang" (pesan `SKIP_WAITING`), tidak ada auto-reload, dan halaman tidak pernah dipaksa memuat ulang oleh service worker. `/sw.js` disajikan dengan `Cache-Control: no-store` dan header `Service-Worker-Allowed: /` sehingga versi baru cepat terdeteksi tanpa memutus alur checkout |
+| 5 | Lighthouse 12 (mobile, 4G via proxy gzip agar menyerupai produksi): **performance 97, LCP 2040 ms**, FCP 2026 ms, TBT 0 ms, CLS 0,0026. Beranda diimpor statis (Vite ikut meng-emit `modulepreload`) untuk menghapus satu perjalanan jaringan |
+| 6 | Uji DevTools pada viewport 360×640: `/`, `/museums`, `/bantuan`, `/login`, `/register` dan 18 halaman terautentikasi (pengunjung/pengelola/admin) melaporkan `document.scrollWidth === clientWidth`; tabel lebar menggulir di dalam `overflow-x-auto`-nya sendiri, bukan menggeser dokumen |
+
+Keputusan implementasi (menyimpang dari §15.1/§15.2 asli, dengan alasan):
+
+| Hal | Keputusan | Alasan |
+|---|---|---|
+| Lokasi service worker | Disajikan dari **`/sw.js`** oleh `ServiceWorkerController` + `Service-Worker-Allowed: /`, bukan `/build/sw.js` | SW di `/build/sw.js` hanya boleh mengendalikan `/build/`, sehingga navigasi tidak pernah ter-intercept dan PWA tidak installable |
+| Manifest | Dirender server (`ManifestController`) dengan `manifest: false` di `vite-plugin-pwa` | `name`/`short_name` mengikuti `APP_NAME` tanpa duplikasi nilai di dua tempat |
+| Mode build SW | `injectManifest` + `resources/js/sw.ts` (format IIFE), `injectRegister: false`, registrasi manual di `resources/js/pwa.ts` | Butuh urutan rute kustom dan kontrol penuh atas prompt pembaruan |
+| Caching dokumen Inertia | Hanya respons **navigasi** ke halaman publik yang di-cache (`StaleWhileRevalidate`); respons XHR `X-Inertia` tidak pernah disimpan | Menghindari konflik versi aset Inertia di cache |
+| Inertia SSR | **Tidak** dipakai | SEO ditangani lewat meta server-side (`SeoHead` + baseline `data-inertia` di `app.blade.php`) dan `sitemap.xml`; SSR menambah proses Node di produksi tanpa manfaat terukur untuk MVP |
+| E-ticket offline | IndexedDB + QR dirender klien (§15.3), bukan cache respons tiket | Satu-satunya cara memenuhi AC-3 tanpa menyimpan respons terautentikasi di Cache Storage |
+| `robots.txt` | Dirender dinamis (`RobotsController`) | Baris `Sitemap:` harus absolut; file statis tidak bisa mengikuti `APP_URL` |
+
+Verifikasi manual (skrip ada di `ticketing/storage/verification/`, bukan bagian aplikasi): `check-offline.cjs` (8/8 lolos — SW scope root, IndexedDB, `/tickets` NetworkOnly, e-ticket offline, halaman publik dari cache, kembali online) dan `check-pages.cjs` (smoke render + lebar 360 px). Lihat `ticketing/storage/verification/README.md`.
+
+Panduan pemasangan: `docs/PWA_INSTALL_GUIDE.md`.
+
+Bug diperbaiki saat verifikasi Fase 8 (semua ditemukan lewat uji browser, bukan unit test):
+
+| Bug | Perbaikan |
+|---|---|
+| Service worker di `/build/sw.js` hanya ber-scope `/build/` sehingga navigasi tidak pernah ter-intercept dan PWA tidak installable | Disajikan dari root `/sw.js` oleh `ServiceWorkerController` + `Service-Worker-Allowed: /` |
+| Navigasi ke `/offline/tickets` mengembalikan halaman offline generik, bukan daftar e-ticket tersimpan | `offlineFallback()` memeriksa `/offline/tickets` sebelum prefiks `/tickets` |
+| Halaman publik yang belum pernah dikunjungi saat offline menampilkan error browser | Rute SWR dibungkus `try/catch` yang jatuh ke halaman offline |
+| `Admin\ReportController` memakai `HAVING` pada alias agregat → crash di SQLite | Filter nilai nol di PHP + `take(10)` |
+| `Organizer\ReportController` crash saat pengelola belum punya museum; `museum_id` dari query string bisa membocorkan data museum lain | `LengthAwarePaginator` kosong + `abort_unless(..., 403)` |
+| `Public\TicketController` memakai `where('booking_id', fn …)` (tidak valid) dan membaca `visit_date` yang tidak ada | `whereHas('booking', …)` + `visit_date_snapshot` |
+| Sidebar pengelola/admin: drawer tidak bisa ditutup di mobile, tautan mati, `flash` bisa `undefined` | Layout ditulis ulang (overlay, `aria-expanded`, auto-close, `page.props.flash ?? {}`) |
+| `Organizer/Gate/Scanner.vue` error TDZ (`code?.data` dipakai sebelum inisialisasi) dan loop kamera tidak bisa dibatalkan | Guard `code?.data`, `loopActive`/`frameHandle`, `import('jsqr')` dinamis |
+| Meta SEO terduplikasi antara `app.blade.php` dan Inertia `Head` | `head-key` + atribut `data-inertia` yang berpasangan |
+| Judul halaman menjadi "X — Jejak - Jejak" | `SeoHead` membuang sufiks `— Jejak` sebelum `createInertiaApp` menambahkan nama aplikasi |
+| `robots.txt` statis tidak bisa memuat `Sitemap:` absolut | `RobotsController` dinamis; file statis dihapus |
+
+Regresi untuk bug halaman di atas dikunci di `tests/Feature/Regression/Phase8PageRegressionTest.php` (6 tes: kepemilikan tiket, detail tiket, isolasi tiket pengguna lain, laporan admin, laporan pengelola tanpa museum, penolakan museum milik pengelola lain).
+
+Gate kualitas akhir Fase 8: Pint bersih, PHPStan 0 error, **Pest 203 tes / 787 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses (SW 49 entri precache).
 
 ## Fase 9 — Testing, security review, deployment
 
