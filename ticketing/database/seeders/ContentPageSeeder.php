@@ -48,13 +48,29 @@ class ContentPageSeeder extends Seeder
         [
             'title' => 'Kebijakan Privasi',
             'type' => ContentPageType::PAGE,
-            'content' => 'Kami hanya mengumpulkan data yang diperlukan untuk memproses pemesanan tiket, yaitu nama, alamat email, dan nomor telepon. Data tidak dijual kepada pihak ketiga. Data transaksi disimpan untuk keperluan audit sesuai ketentuan yang berlaku.',
+            'content' => 'Kebijakan Privasi ini menjelaskan data pribadi yang dikumpulkan Jejak saat Anda memesan tiket museum, tujuan penggunaannya, serta hak Anda atas data tersebut.'
+                ."\n\n".'Data yang kami kumpulkan: (1) identitas pemesan berupa nama, alamat email, dan nomor telepon; (2) data transaksi berupa museum, tanggal kunjungan, jumlah tiket, dan nominal pembayaran; (3) data teknis berupa alamat IP dan jenis perangkat untuk keamanan serta pencegahan penyalahgunaan.'
+                ."\n\n".'Kami tidak menyimpan nomor kartu atau kredensial pembayaran Anda. Seluruh pemrosesan pembayaran dilakukan oleh Midtrans sebagai penyedia layanan pembayaran; Jejak hanya menerima status dan nomor referensi transaksi.'
+                ."\n\n".'Tujuan penggunaan: menerbitkan dan memverifikasi tiket, mengirim email e-ticket dan pengingat kunjungan, menangani pengaduan atau refund, serta memenuhi kewajiban audit dan hukum yang berlaku.'
+                ."\n\n".'Berbagi data: data pemesanan diteruskan kepada pengelola museum yang bersangkutan sebatas kebutuhan verifikasi kunjungan. Kami tidak menjual data pribadi kepada pihak ketiga.'
+                ."\n\n".'Penyimpanan: data transaksi disimpan selama diperlukan untuk keperluan audit dan kewajiban hukum. Setelah itu data dihapus atau dianonimkan.'
+                ."\n\n".'Hak Anda: Anda dapat meminta akses, pembetulan, atau penghapusan data pribadi Anda, serta menarik persetujuan atas penggunaan tertentu, dengan menghubungi pengelola museum atau admin platform.'
+                ."\n\n".'Keamanan: akses ke data pribadi dibatasi berdasarkan peran, koneksi memakai HTTPS, dan kata sandi disimpan dalam bentuk hash.'
+                ."\n\n".'Kontak pengaduan data pribadi: privasi@jejak.id. Kami akan menanggapi permintaan Anda dalam waktu 14 hari kerja.',
             'sort_order' => 1,
         ],
         [
             'title' => 'Syarat dan Ketentuan',
             'type' => ContentPageType::PAGE,
-            'content' => 'Dengan menggunakan layanan ini, Anda menyetujui bahwa setiap tiket hanya berlaku untuk satu kali kunjungan pada tanggal dan slot yang dipilih. Penyalahgunaan tiket, termasuk penggunaan ganda atau pemalsuan QR, dapat mengakibatkan tiket dibatalkan tanpa pengembalian dana.',
+            'content' => 'Dengan menggunakan layanan Jejak, Anda menyetujui Syarat dan Ketentuan berikut. Layanan ini menghubungkan pengunjung dengan pengelola museum untuk pemesanan tiket secara daring.'
+                ."\n\n".'Pemesanan: setiap tiket hanya berlaku untuk satu kali kunjungan pada tanggal dan slot yang dipilih. Kuota ditahan selama 15 menit sejak pemesanan dibuat; bila pembayaran belum diterima hingga batas waktu tersebut, pesanan otomatis dibatalkan dan kuota dilepas kembali.'
+                ."\n\n".'Pembayaran: transaksi diproses oleh Midtrans. Tiket diterbitkan setelah pembayaran terverifikasi. Jejak tidak menyimpan data kartu Anda.'
+                ."\n\n".'Penggunaan tiket: tiket wajib ditunjukkan dalam bentuk QR kepada petugas gate. Setiap QR hanya dapat dipakai satu kali. Tiket yang telah dipakai, dibatalkan, atau kedaluwarsa tidak dapat digunakan kembali.'
+                ."\n\n".'Penyalahgunaan: penggunaan ganda, pemalsuan QR, atau upaya mengakses akun dan data milik orang lain dapat mengakibatkan pembatalan tiket tanpa pengembalian dana dan pemblokiran akun.'
+                ."\n\n".'Pembatalan dan penjadwalan ulang: kebijakan pembatalan dan penjadwalan ulang ditetapkan oleh masing-masing museum. Silakan menghubungi pengelola museum yang bersangkutan.'
+                ."\n\n".'Refund: pengembalian dana diproses melalui Midtrans sesuai kebijakan museum. Waktu pengembalian dana mengikuti ketentuan penyedia layanan pembayaran.'
+                ."\n\n".'Perubahan layanan: Jejak dapat memperbarui Syarat dan Ketentuan ini. Perubahan berlaku setelah dipublikasikan pada halaman ini.'
+                ."\n\n".'Hukum yang berlaku: Syarat dan Ketentuan ini tunduk pada hukum yang berlaku di Republik Indonesia.',
             'sort_order' => 2,
         ],
     ];

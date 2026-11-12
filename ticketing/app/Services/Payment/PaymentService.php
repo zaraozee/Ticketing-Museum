@@ -11,6 +11,7 @@ use App\Models\Payment;
 use App\Models\Ticket;
 use App\Models\VisitSlot;
 use App\Services\Audit\ActivityLogger;
+use App\Services\Notification\BookingNotifier;
 use App\Services\Quota\QuotaService;
 use App\Services\Ticket\TicketIssuer;
 use Illuminate\Support\Facades\DB;
@@ -36,10 +37,18 @@ class PaymentService
      */
     private const GATEWAY_EXPIRY_BUFFER_MINUTES = 2;
 
+    /**
+     * Efek samping (email, notifikasi) yang ditunda sampai transaksi selesai.
+     *
+     * @var array<int, callable(): void>
+     */
+    private array $afterCommitCallbacks = [];
+
     public function __construct(
         private readonly MidtransClient $client,
         private readonly QuotaService $quota,
         private readonly TicketIssuer $issuer,
+        private readonly BookingNotifier $notifier,
     ) {}
 
     /**
@@ -132,7 +141,9 @@ class PaymentService
             return PaymentEventResult::NEEDS_REVIEW;
         }
 
-        return DB::transaction(function () use ($payment, $status, $transactionStatus): PaymentEventResult {
+        $this->afterCommitCallbacks = [];
+
+        $result = DB::transaction(function () use ($payment, $status, $transactionStatus): PaymentEventResult {
             /** @var Payment $locked */
             $locked = Payment::query()->whereKey($payment->id)->lockForUpdate()->firstOrFail();
 
@@ -178,6 +189,20 @@ class PaymentService
 
             return PaymentEventResult::APPLIED;
         });
+
+        /*
+         * Notifikasi dijalankan setelah transaksi service ini selesai — bukan
+         * dengan `DB::afterCommit()`, yang hanya berbunyi saat level transaksi
+         * mencapai nol. Di dalam tes, `RefreshDatabase` membungkus tiap tes
+         * dengan transaksi sehingga callback itu tidak akan pernah berjalan.
+         */
+        foreach ($this->afterCommitCallbacks as $callback) {
+            $callback();
+        }
+
+        $this->afterCommitCallbacks = [];
+
+        return $result;
     }
 
     /**
@@ -342,6 +367,11 @@ class PaymentService
                     'booking_id' => $booking->id,
                 ]);
 
+                $this->notifyAfterCommit(fn () => $this->notifier->needsReview(
+                    $booking,
+                    'Pembayaran Anda masuk setelah pemesanan kedaluwarsa dan kuota sudah habis. Tim kami akan menghubungi Anda untuk pengembalian dana.',
+                ));
+
                 return;
             }
 
@@ -362,6 +392,29 @@ class PaymentService
             'payment_id' => $payment->id,
             'quantity' => $quantity,
         ], $booking->user_id);
+
+        /*
+         * Email dan notifikasi hanya setelah transaksi commit: mengantrekan
+         * email di dalam transaksi berisiko mengirim e-ticket untuk booking
+         * yang kemudian di-rollback.
+         */
+        $this->notifyAfterCommit(fn () => $this->notifier->confirmed($booking));
+    }
+
+    /**
+     * Jalankan efek samping notifikasi setelah transaksi aktif commit.
+     *
+     * @param  callable(): void  $callback
+     */
+    private function notifyAfterCommit(callable $callback): void
+    {
+        if (DB::transactionLevel() > 0) {
+            $this->afterCommitCallbacks[] = $callback;
+
+            return;
+        }
+
+        $callback();
     }
 
     /**

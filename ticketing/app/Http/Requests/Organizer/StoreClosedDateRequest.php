@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Organizer;
 
+use App\Enums\BookingStatus;
+use App\Models\Booking;
 use App\Models\Museum;
 use Closure;
 use Illuminate\Foundation\Http\FormRequest;
@@ -35,6 +37,26 @@ class StoreClosedDateRequest extends FormRequest
 
                     if ($museum->closedDates()->whereDate('closed_on', $value)->exists()) {
                         $fail('Tanggal tersebut sudah ditandai tutup.');
+                    }
+
+                    /*
+                     * Skenario 12 (§19): menutup tanggal yang sudah memiliki
+                     * booking aktif akan membatalkan kunjungan yang sudah
+                     * dibayar. Tolak dengan peringatan agar pengelola
+                     * menghubungi pengunjung lebih dulu, alih-alih diam-diam
+                     * membuat tiket yang tidak dapat dipakai.
+                     */
+                    $activeBookings = Booking::query()
+                        ->where('museum_id', $museum->id)
+                        ->whereDate('visit_date_snapshot', $value)
+                        ->whereIn('status', [
+                            BookingStatus::PENDING_PAYMENT,
+                            BookingStatus::CONFIRMED,
+                        ])
+                        ->count();
+
+                    if ($activeBookings > 0) {
+                        $fail("Tanggal tersebut sudah memiliki {$activeBookings} booking aktif. Batalkan atau jadwalkan ulang booking tersebut lebih dulu.");
                     }
                 },
             ],

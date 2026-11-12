@@ -68,7 +68,7 @@ const locationLine = computed(() => {
 });
 
 /**
- * Deskripsi meta dipotong Â±155 karakter agar tidak terpangkas mesin pencari.
+ * Deskripsi meta dipotong ±155 karakter agar tidak terpangkas mesin pencari.
  */
 const seoDescription = computed<string>(() => {
     const source = props.museum.description?.replace(/\s+/g, ' ').trim();
@@ -93,7 +93,7 @@ const seoImage = computed<string | null>(() => props.museum.images[0]?.url ?? nu
         />
 
         <div class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-            <Link href="/museums" class="text-sm font-medium text-blue-600 hover:underline">â† Kembali ke daftar museum</Link>
+            <Link href="/museums" class="text-sm font-medium text-blue-600 hover:underline">← Kembali ke daftar museum</Link>
 
             <div class="mt-4 grid grid-cols-1 gap-8 lg:grid-cols-3">
                 <!-- Galeri -->
@@ -173,7 +173,7 @@ const seoImage = computed<string | null>(() => props.museum.images[0]?.url ?? nu
                         </div>
                     </section>
 
-                    <!-- Video YouTube (facade, THIRD_PARTY Â§6) -->
+                    <!-- Video YouTube (facade, THIRD_PARTY §6) -->
                     <section v-if="museum.youtube_video_id" class="mt-10">
                         <h2 class="text-lg font-bold text-slate-900">Video Profil</h2>
                         <div class="mt-3 aspect-video overflow-hidden rounded-2xl border border-slate-200 bg-slate-900">
@@ -200,7 +200,7 @@ const seoImage = computed<string | null>(() => props.museum.images[0]?.url ?? nu
                                     loading="lazy"
                                 />
                                 <span class="absolute inset-0 flex items-center justify-center">
-                                    <span class="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-2xl text-slate-900 shadow-lg">â–¶</span>
+                                    <span class="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 text-2xl text-slate-900 shadow-lg">▶</span>
                                 </span>
                             </button>
                         </div>

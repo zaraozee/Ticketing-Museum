@@ -250,6 +250,65 @@ Gate kualitas akhir Fase 8: Pint bersih, PHPStan 0 error, **Pest 203 tes / 787 a
 | **Deliverable** | Lingkungan produksi; laporan UAT; runbook; checklist go-live |
 | **Acceptance criteria** | (1) 13 skenario kunci §19 lulus. (2) Tidak ada temuan keamanan kritis/tinggi yang terbuka. (3) Restore backup berhasil diuji. (4) Pembayaran produksi bernilai kecil berhasil end-to-end (booking → tiket → scan). (5) Alarm antrean/webhook terbukti aktif. (6) UAT disetujui oleh perwakilan museum pilot. |
 
+### Status Fase 9
+
+Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 249 tes / 979 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses, `composer audit` tanpa advisory, `npm audit --omit=dev` 0 kerentanan.
+
+#### Bukti acceptance criteria
+
+| AC | Status | Bukti |
+|---|---|---|
+| (1) 13 skenario kunci §19 lulus | ✅ | Tabel pemetaan di bawah — 13/13 punya tes otomatis |
+| (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
+| (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` → "Backup dan restore terverifikasi: data identik sebelum dan sesudah."; 9 tes di `BackupRestoreTest` |
+| (4) Pembayaran produksi bernilai kecil end-to-end | ⛔ **Terblokir** | Butuh akun Midtrans produksi nyata — lihat tabel item terblokir |
+| (5) Alarm antrean/webhook terbukti aktif | ⚠️ **Sebagian** | `ops:health` + 6 tes membuktikan alarm berbunyi (exit ≠ 0) dan terjadwal tiap 5 menit; bukti notifikasi pada target monitoring nyata belum ada |
+| (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
+
+#### Pemetaan 13 skenario kunci §19
+
+| # | Skenario | Bukti otomatis |
+|---|---|---|
+| 1 | Dua pengguna memesan kuota terakhir bersamaan | `QuotaConcurrencyTest` → "parallel workers competing for the last seats never oversell" (proses paralel nyata, commit sungguhan) |
+| 2 | Callback pembayaran diterima lebih dari sekali | `PaymentWebhookTest` → "AC-2: a duplicate webhook does not create a second payment or duplicate tickets" |
+| 3 | Pembayaran berhasil tetapi browser tertutup | `PaymentWebhookTest` → "scenario 3: a payment completes with the browser closed and the tickets appear in my tickets" (tiket di Tiket Saya + email terantre) |
+| 4 | Booking kedaluwarsa | `BookingFlowTest` → "AC-5: the expire command releases quota and marks the booking expired" |
+| 5 | Tiket yang sama dipindai dua kali (juga bersamaan) | `ScanServiceTest` → "scan bersamaan hanya satu yang berhasil" |
+| 6 | Organizer mengakses museum organizer lain | `MuseumAuthorizationTest` (9 tes), termasuk daftar, ubah, hapus, dan ajukan review |
+| 7 | Petugas memindai tiket museum berbeda | `ScanServiceTest` → hasil `wrong_museum`, tiket tetap `active` |
+| 8 | Signature webhook salah | `PaymentWebhookTest` → "AC-3: an invalid signature returns 403 and changes nothing" |
+| 9 | Pembayaran masuk setelah booking expired dan slot penuh | `PaymentWebhookTest` → "AC-7 / BR-23: a late payment without available quota goes to the anomaly queue" |
+| 10 | Retry scan dengan `client_scan_uuid` sama | `ScanServiceTest` → mengembalikan hasil asli, bukan `already_used` |
+| 11 | `gross_amount` tidak cocok | `PaymentWebhookTest` → "AC-6: a gross amount mismatch flags the payment for review and does not confirm" |
+| 12 | Tanggal tutup bertabrakan dengan booking aktif | `SecurityControlsTest` → "a closed date cannot be added on a day that already has active bookings" (BR-20) |
+| 13 | Tiket tetap dapat ditampilkan saat offline | `PwaTest` + `storage/verification/check-offline.cjs` (8/8 lulus) |
+
+#### Deliverable dokumen
+
+| Dokumen | Isi |
+|---|---|
+| `docs/DEPLOYMENT.md` | VPS → TLS → webhook → verifikasi → alur pembaruan |
+| `docs/RUNBOOK.md` | Pemeriksaan harian, backup/restore, prosedur insiden |
+| `docs/SECURITY_REVIEW.md` | Checklist §16, hasil audit, risiko tersisa |
+| `docs/GO_LIVE_CHECKLIST.md` | Checklist go-live 14 bagian dengan kolom bukti |
+| `docs/UAT_PLAN.md` | 34 skenario UAT + lembar tanda tangan museum pilot |
+| `docs/SOP_GATE.md` | Prosedur petugas gate |
+| `docs/RUNBOOK_PAYMENT_ANOMALY.md` | Penanganan anomali pembayaran |
+| `deploy/nginx.conf`, `deploy/php-fpm.conf`, `deploy/supervisor.conf` | Konfigurasi produksi |
+
+#### Yang belum dapat dibuktikan di lingkungan ini
+
+| Butir | Penghalang | Yang dibutuhkan |
+|---|---|---|
+| AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi | Kredensial produksi + transaksi bernilai kecil nyata |
+| AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot |
+| AC-5 bukti alarm pada target nyata | Belum ada monitor eksternal terpasang | Target monitoring produksi (mis. Healthchecks.io/UptimeRobot) |
+| PostgreSQL | Lingkungan lokal tidak punya `pdo_pgsql` | VPS dengan PostgreSQL 15+ |
+| CI pipeline | Repositori belum punya runner | GitHub Actions/GitLab CI |
+
+Butir-butir di atas **tidak diklaim selesai**. Langkah verifikasinya sudah
+tertulis di `docs/GO_LIVE_CHECKLIST.md` §6, §8, §9, dan §12.
+
 ## Fase 10 — Fitur lanjutan (berkelanjutan)
 
 | | |

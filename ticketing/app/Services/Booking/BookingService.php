@@ -13,6 +13,7 @@ use App\Models\TicketType;
 use App\Models\User;
 use App\Models\VisitSlot;
 use App\Services\Audit\ActivityLogger;
+use App\Services\Notification\BookingNotifier;
 use App\Services\Quota\QuotaService;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +27,17 @@ use Illuminate\Validation\ValidationException;
  */
 class BookingService
 {
-    public function __construct(private readonly QuotaService $quota) {}
+    public function __construct(
+        private readonly QuotaService $quota,
+        private readonly BookingNotifier $notifier,
+    ) {}
+
+    /**
+     * Booking yang baru kedaluwarsa dan menunggu dinotifikasi.
+     *
+     * @var array<int, Booking>
+     */
+    private array $expiredNotifications = [];
 
     /**
      * Buat booking `pending_payment` dan tahan kuota (BR-05).
@@ -183,7 +194,7 @@ class BookingService
             return false;
         }
 
-        return DB::transaction(function () use ($booking): bool {
+        $expired = DB::transaction(function () use ($booking): bool {
             $affected = DB::table('bookings')
                 ->where('id', $booking->id)
                 ->where('status', BookingStatus::PENDING_PAYMENT->value)
@@ -213,8 +224,31 @@ class BookingService
 
             $booking->refresh();
 
+            // Diberitahukan setelah transaksi selesai agar pengguna tidak
+            // menerima notifikasi untuk booking yang urung kedaluwarsa.
+            // `DB::afterCommit()` tidak dipakai: callback-nya hanya berbunyi
+            // saat level transaksi mencapai nol, sedangkan `RefreshDatabase`
+            // membungkus tiap tes dengan transaksi.
+            $this->expiredNotifications[] = $booking;
+
             return true;
         });
+
+        $this->flushExpiredNotifications();
+
+        return $expired;
+    }
+
+    /**
+     * Kirim notifikasi booking kedaluwarsa yang terkumpul.
+     */
+    private function flushExpiredNotifications(): void
+    {
+        foreach ($this->expiredNotifications as $expiredBooking) {
+            $this->notifier->expired($expiredBooking);
+        }
+
+        $this->expiredNotifications = [];
     }
 
     /**

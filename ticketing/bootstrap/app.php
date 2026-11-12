@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureRole;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\SecurityHeaders;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
         ]);
+
+        // Header keamanan berlaku untuk semua respons (halaman, API, manifest,
+        // service worker, halaman offline) — SYSTEM_DESIGN §16.
+        $middleware->append(SecurityHeaders::class);
 
         // Webhook pembayaran datang dari server Midtrans, bukan browser:
         // tidak ada sesi dan tidak ada token CSRF (THIRD_PARTY §1.3 langkah 1).

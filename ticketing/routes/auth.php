@@ -13,21 +13,25 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     // Regular user registration
     Route::get('register', [RegisteredUserController::class, 'create'])->name('register');
-    Route::post('register', [RegisteredUserController::class, 'store']);
+    Route::post('register', [RegisteredUserController::class, 'store'])->middleware('throttle:register');
 
     // Organizer registration
     Route::get('register/organizer', [OrganizerRegistrationController::class, 'create'])->name('register.organizer');
-    Route::post('register/organizer', [OrganizerRegistrationController::class, 'store']);
+    Route::post('register/organizer', [OrganizerRegistrationController::class, 'store'])->middleware('throttle:register');
 
     // Authentication
     Route::get('login', [AuthenticatedSessionController::class, 'create'])->name('login');
-    Route::post('login', [AuthenticatedSessionController::class, 'store']);
+    Route::post('login', [AuthenticatedSessionController::class, 'store'])->middleware('throttle:login');
 
     // Password reset
     Route::get('forgot-password', [PasswordResetLinkController::class, 'create'])->name('password.request');
-    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])->name('password.email');
+    Route::post('forgot-password', [PasswordResetLinkController::class, 'store'])
+        ->middleware('throttle:password')
+        ->name('password.email');
     Route::get('reset-password/{token}', [NewPasswordController::class, 'create'])->name('password.reset');
-    Route::post('reset-password', [NewPasswordController::class, 'store'])->name('password.store');
+    Route::post('reset-password', [NewPasswordController::class, 'store'])
+        ->middleware('throttle:password')
+        ->name('password.store');
 
     // Social Login (Google)
     Route::get('auth/google', [SocialAuthController::class, 'redirectToGoogle'])->name('auth.google');

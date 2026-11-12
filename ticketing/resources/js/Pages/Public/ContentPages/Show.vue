@@ -33,7 +33,7 @@ const seoDescription = computed<string>(() => {
         />
 
         <div class="mx-auto max-w-3xl px-4 py-10 sm:px-6 lg:px-8">
-            <Link href="/bantuan" class="text-sm font-medium text-blue-600 hover:underline">â† Kembali ke Bantuan</Link>
+            <Link href="/bantuan" class="text-sm font-medium text-blue-600 hover:underline">← Kembali ke Bantuan</Link>
 
             <span class="mt-4 inline-block rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
                 {{ page.type }}

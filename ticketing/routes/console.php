@@ -21,3 +21,11 @@ Schedule::command('payments:reconcile')->everyFiveMinutes()->withoutOverlapping(
 
 // Fase 6: tandai tiket expired setelah tanggal kunjungan lewat (FR-TIX-01).
 Schedule::command('tickets:expire')->dailyAt('02:00');
+
+// Fase 9: pengingat kunjungan H-1 (FR-NTF-03). Dijalankan sore hari agar
+// pengunjung sempat menyiapkan e-ticket sebelum berangkat.
+Schedule::command('bookings:remind')->dailyAt('17:00')->withoutOverlapping();
+
+// Fase 9: pemeriksaan operasional (NFR-13). Exit code ≠ 0 menjadi pemicu
+// alarm pada monitor eksternal; lihat docs/RUNBOOK.md.
+Schedule::command('ops:health')->everyFiveMinutes()->withoutOverlapping();

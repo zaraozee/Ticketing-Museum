@@ -4,6 +4,7 @@ use App\Enums\BookingStatus;
 use App\Enums\PaymentEventResult;
 use App\Enums\PaymentStatus;
 use App\Enums\TicketStatus;
+use App\Mail\BookingConfirmedMail;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Museum;
@@ -17,6 +18,8 @@ use App\Models\User;
 use App\Models\VisitSlot;
 use App\Services\Payment\FakeMidtransClient;
 use App\Services\Payment\MidtransClient;
+use Illuminate\Support\Facades\Mail;
+use Inertia\Testing\AssertableInertia as Assert;
 
 /**
  * Pembayaran dan webhook (FR-PAY-01…08).
@@ -163,6 +166,61 @@ test('AC-4: a successful payment confirms the booking, moves quota to sold, and 
     expect($tickets->every(fn (Ticket $ticket): bool => $ticket->status === TicketStatus::ACTIVE))->toBeTrue()
         ->and($tickets->pluck('sequence')->sort()->values()->all())->toBe([1, 2])
         ->and($tickets->pluck('token_hash')->unique())->toHaveCount(2);
+});
+
+/*
+|--------------------------------------------------------------------------
+| §19 skenario 3: pembayaran berhasil tetapi browser tertutup
+|--------------------------------------------------------------------------
+|
+| Pengguna menutup tab setelah halaman pembayaran terbuka. Tidak ada satu pun
+| request dari browser setelah itu; satu-satunya bukti pembayaran adalah
+| notifikasi gateway. Yang harus tetap terjadi: booking terkonfirmasi, tiket
+| terbit, tiket terlihat di "Tiket Saya", dan email e-ticket masuk antrean.
+|
+*/
+test('scenario 3: a payment completes with the browser closed and the tickets appear in my tickets', function (): void {
+    Mail::fake();
+
+    // Pengguna hanya membuka halaman pembayaran, lalu menutup tab.
+    $this->actingAs($this->user)->post(route('bookings.pay', $this->booking->uuid));
+    $payment = Payment::query()->firstOrFail();
+
+    // Sejak titik ini tidak ada request dari browser sama sekali.
+    $this->fake->forceStatus($payment->provider_order_id, webhookPayload($payment));
+
+    $this->postJson(route('webhooks.midtrans'), webhookPayload($payment))
+        ->assertOk()
+        ->assertJsonPath('result', PaymentEventResult::APPLIED->value);
+
+    // E-ticket terkirim lewat antrean, bukan ditunggu di request pengguna.
+    Mail::assertQueued(BookingConfirmedMail::class, 1);
+
+    $this->assertDatabaseHas('email_logs', [
+        'mailable_type' => BookingConfirmedMail::class,
+        'to_email' => $this->booking->contact_email,
+        'status' => 'pending',
+    ]);
+
+    // Tiket benar-benar dapat dilihat pengguna saat ia membuka aplikasi lagi.
+    $this->actingAs($this->user)
+        ->get(route('tickets.index'))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Tickets/Index')
+            ->has('tickets.data', 2));
+
+    $ticket = Ticket::query()->where('booking_id', $this->booking->id)->firstOrFail();
+
+    $this->actingAs($this->user)
+        ->get(route('tickets.show', $ticket->uuid))
+        ->assertOk();
+
+    // Notifikasi in-app juga tersedia tanpa perlu menyegarkan halaman pembayaran.
+    $this->assertDatabaseHas('notifications', [
+        'user_id' => $this->user->id,
+        'type' => 'booking.confirmed',
+    ]);
 });
 
 test('AC-2: a duplicate webhook does not create a second payment or duplicate tickets', function (): void {

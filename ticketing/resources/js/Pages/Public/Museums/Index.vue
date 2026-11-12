@@ -178,7 +178,7 @@ const hasFilters = computed<boolean>(
                             {{ museum.city || 'Lokasi belum diisi' }}<span v-if="museum.province">, {{ museum.province }}</span>
                         </p>
                         <p class="mt-1 line-clamp-2 text-sm text-slate-600">{{ museum.excerpt }}</p>
-                        <span class="mt-auto pt-3 text-sm font-semibold text-blue-600">Lihat detail â†’</span>
+                        <span class="mt-auto pt-3 text-sm font-semibold text-blue-600">Lihat detail →</span>
                     </div>
                 </Link>
             </div>

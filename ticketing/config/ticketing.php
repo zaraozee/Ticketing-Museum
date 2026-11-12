@@ -84,4 +84,25 @@ return [
             '/notifications',
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Ambang Monitoring (Fase 9, NFR-13)
+    |--------------------------------------------------------------------------
+    |
+    | Dipakai `ops:health` untuk memutuskan kapan alarm berbunyi. Nilai default
+    | adalah batas yang wajar untuk MVP; sesuaikan setelah pemantauan produksi
+    | menunjukkan pola trafik nyata.
+    |
+    */
+    'monitoring' => [
+        // Job gagal yang menumpuk menandakan bug atau ketergantungan mati.
+        'failed_jobs_threshold' => (int) env('MONITORING_FAILED_JOBS_THRESHOLD', 5),
+        // Job tertua yang masih menunggu; melebihi ini berarti worker mati.
+        'queue_age_minutes' => (int) env('MONITORING_QUEUE_AGE_MINUTES', 10),
+        // Pembayaran pending yang jauh melewati batas bayar.
+        'stuck_payment_minutes' => (int) env('MONITORING_STUCK_PAYMENT_MINUTES', 30),
+        // Notifikasi webhook sah yang belum diproses.
+        'webhook_lag_minutes' => (int) env('MONITORING_WEBHOOK_LAG_MINUTES', 10),
+    ],
 ];

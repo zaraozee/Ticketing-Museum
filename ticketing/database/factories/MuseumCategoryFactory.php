@@ -16,9 +16,16 @@ class MuseumCategoryFactory extends Factory
      */
     public function definition(): array
     {
-        $name = fake()->unique()->randomElement([
+        /*
+         * Nama kategori harus unik per database, tetapi tidak boleh memakai
+         * `fake()->unique()` pada daftar delapan elemen: generator unik Faker
+         * hidup selama satu proses, sehingga tes yang membuat lebih dari
+         * delapan museum akan gagal "Maximum retries reached". Sufiks acak
+         * memberi ruang yang jauh lebih besar tanpa menyimpan state.
+         */
+        $name = fake()->randomElement([
             'Sejarah', 'Seni', 'Budaya', 'Sains', 'Arkeologi', 'Etnografi', 'Maritim', 'Geologi',
-        ]).' '.fake()->unique()->numerify('##');
+        ]).' '.Str::upper(Str::random(6));
 
         return [
             'name' => $name,

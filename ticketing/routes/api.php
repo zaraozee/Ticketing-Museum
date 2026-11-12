@@ -28,7 +28,11 @@ Route::middleware(['web'])->prefix('v1')->name('api.v1.')->group(function (): vo
     // Gate Scanner API (FR-GATE-01...06)
     Route::middleware('auth')->prefix('gate')->name('gate.')->group(function (): void {
         Route::get('museums', [ScanController::class, 'museums'])->name('museums');
-        Route::post('scans', [ScanController::class, 'scan'])->name('scans.store');
+        // Scan QR dibatasi per petugas; lookup kode manual lebih ketat karena
+        // kode pendek mudah ditebak (SYSTEM_DESIGN §16).
+        Route::post('scans', [ScanController::class, 'scan'])
+            ->middleware('throttle:scan')
+            ->name('scans.store');
         Route::get('scans', [ScanController::class, 'history'])->name('scans.index');
     });
 });

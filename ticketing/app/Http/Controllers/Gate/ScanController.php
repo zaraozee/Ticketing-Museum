@@ -8,6 +8,7 @@ use App\Models\TicketScan;
 use App\Services\Gate\ScanService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Validation\ValidationException;
 
 /**
@@ -81,13 +82,37 @@ class ScanController extends Controller
             'client_scan_uuid' => ['required', 'uuid'],
         ]);
 
-        if (! $validated['qr_payload'] && ! $validated['ticket_code']) {
+        // Kunci opsional bisa tidak ada sama sekali di array tervalidasi, jadi
+        // akses langsung akan memicu "Undefined array key" saat petugas hanya
+        // mengirim salah satu dari keduanya.
+        if (empty($validated['qr_payload']) && empty($validated['ticket_code'])) {
             throw ValidationException::withMessages([
                 'qr_payload' => 'Salah satu dari qr_payload atau ticket_code harus diisi.',
             ]);
         }
 
         $user = $request->user();
+
+        /*
+         * Kode tiket hanya 10 karakter sehingga rawan ditebak. Lookup manual
+         * karena itu memakai batas yang jauh lebih ketat daripada scan QR
+         * (SYSTEM_DESIGN §16). Batas dihitung per petugas, bukan per IP, sebab
+         * banyak petugas dapat berbagi satu jaringan museum.
+         */
+        if (! empty($validated['ticket_code'])) {
+            $key = 'scan-manual:'.$user->id;
+            $max = (int) config('security.rate_limits.scan_manual');
+
+            if (RateLimiter::tooManyAttempts($key, $max)) {
+                return response()->json([
+                    'error' => 'Terlalu banyak percobaan kode manual. Tunggu sebentar lalu coba lagi.',
+                    'retry_after' => RateLimiter::availableIn($key),
+                ], 429);
+            }
+
+            RateLimiter::hit($key, 60);
+        }
+
         $museumId = $validated['museum_id'];
 
         // Verifikasi akses petugas ke museum ini

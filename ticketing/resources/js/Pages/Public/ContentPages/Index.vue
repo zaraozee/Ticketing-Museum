@@ -47,7 +47,7 @@ const toggle = (slug: string) => {
                             @click="toggle(faq.slug)"
                         >
                             <span class="text-sm font-semibold text-slate-900">{{ faq.title }}</span>
-                            <span class="text-slate-400">{{ openSlug === faq.slug ? 'âˆ’' : '+' }}</span>
+                            <span class="text-slate-400">{{ openSlug === faq.slug ? '−' : '+' }}</span>
                         </button>
                         <div v-show="openSlug === faq.slug" class="px-5 pb-4 text-sm leading-relaxed whitespace-pre-line text-slate-700">
                             {{ faq.content || 'Jawaban belum tersedia.' }}

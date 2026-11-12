@@ -78,7 +78,7 @@ Route::get('/offline/tickets', function () {
  * Keamanan bergantung pada verifikasi signature di `WebhookProcessor`.
  */
 Route::post('/webhooks/midtrans', MidtransWebhookController::class)
-    ->middleware('throttle:120,1')
+    ->middleware('throttle:webhook')
     ->name('webhooks.midtrans');
 
 Route::middleware('auth')->group(function () {
@@ -99,9 +99,13 @@ Route::middleware('auth')->group(function () {
     // Fase 5 — pemesanan tiket (FR-BKG-01…09, FR-PAY-05)
     Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
     Route::get('/museums/{museum}/book', [BookingController::class, 'create'])->name('bookings.create');
-    Route::post('/museums/{museum}/book', [BookingController::class, 'store'])->name('bookings.store');
+    Route::post('/museums/{museum}/book', [BookingController::class, 'store'])
+        ->middleware('throttle:booking')
+        ->name('bookings.store');
     Route::get('/bookings/{booking:uuid}', [BookingController::class, 'show'])->name('bookings.show');
-    Route::post('/bookings/{booking:uuid}/pay', [BookingController::class, 'pay'])->name('bookings.pay');
+    Route::post('/bookings/{booking:uuid}/pay', [BookingController::class, 'pay'])
+        ->middleware('throttle:booking')
+        ->name('bookings.pay');
     Route::post('/bookings/{booking:uuid}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
     // Polling status: baca-saja, tidak pernah menerima status dari klien (AC-8).
     Route::get('/bookings/{booking:uuid}/status', [BookingController::class, 'status'])->name('bookings.status');
