@@ -113,6 +113,43 @@ test('starting a payment creates one attempt and asks the gateway for a snap tok
     expect($this->fake->snapRequests)->toHaveCount(1);
 });
 
+/*
+|--------------------------------------------------------------------------
+| Halaman pembayaran harus memberi frontend semua yang dibutuhkan Snap
+|--------------------------------------------------------------------------
+|
+| Regresi: `snapUrl` dan `snapClientKey` dikirim ke komponen tetapi skrip Snap
+| tidak pernah dimuat, dan `snap_redirect_url` tidak pernah dikirim sehingga
+| tombol bayar tidak melakukan apa pun. Akibatnya pembayaran tidak dapat
+| diselesaikan sama sekali — AC-4 mustahil walau kredensial sudah benar.
+|
+*/
+test('the booking page exposes everything the frontend needs to open snap', function (): void {
+    config([
+        'services.midtrans.client_key' => 'SB-Mid-client-test',
+        'services.midtrans.snap_url' => 'https://app.sandbox.midtrans.com/snap/snap.js',
+    ]);
+
+    $this->actingAs($this->user)->post(route('bookings.pay', $this->booking->uuid));
+
+    $payment = Payment::query()->firstOrFail();
+
+    expect($payment->snap_token)->not->toBeNull()
+        ->and($payment->snap_redirect_url)->not->toBeNull();
+
+    $this->actingAs($this->user)
+        ->get(route('bookings.show', $this->booking->uuid))
+        ->assertOk()
+        ->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Bookings/Show')
+            // Skrip Snap dimuat dari sini; tanpa ini `window.snap` tak pernah ada.
+            ->where('snapUrl', 'https://app.sandbox.midtrans.com/snap/snap.js')
+            ->where('snapClientKey', 'SB-Mid-client-test')
+            ->where('booking.payment.snap_token', $payment->snap_token)
+            // Cadangan bila skrip diblokir jaringan.
+            ->where('booking.payment.snap_redirect_url', $payment->snap_redirect_url));
+});
+
 test('starting a payment twice reuses the active attempt instead of creating a second bill', function (): void {
     $this->actingAs($this->user)->post(route('bookings.pay', $this->booking->uuid));
     $this->actingAs($this->user)->post(route('bookings.pay', $this->booking->uuid));

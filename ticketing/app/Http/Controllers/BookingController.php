@@ -144,6 +144,10 @@ class BookingController extends Controller
                     'status_label' => $payment->status->label(),
                     'gross_amount' => $payment->gross_amount,
                     'snap_token' => $payment->snap_token,
+                    // Cadangan bila skrip Snap gagal dimuat (mis. diblokir
+                    // jaringan kantor): pengguna tetap dapat menyelesaikan
+                    // pembayaran lewat halaman Midtrans.
+                    'snap_redirect_url' => $payment->snap_redirect_url,
                     'needs_review' => $payment->needs_review,
                 ],
             ],

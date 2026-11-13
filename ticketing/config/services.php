@@ -61,7 +61,15 @@ return [
         'server_key' => env('MIDTRANS_SERVER_KEY'),
         'client_key' => env('MIDTRANS_CLIENT_KEY'),
         'is_production' => (bool) env('MIDTRANS_IS_PRODUCTION', false),
-        'snap_url' => env('MIDTRANS_SNAP_URL', 'https://app.sandbox.midtrans.com/snap/snap.js'),
+
+        // Snap memakai host berbeda untuk sandbox dan produksi. Nilai bawaan
+        // sengaja mengikuti `MIDTRANS_IS_PRODUCTION` supaya menyalakan mode
+        // produksi tidak meninggalkan skrip sandbox di halaman pembayaran —
+        // kesalahan yang membuat pembayaran produksi gagal tanpa pesan jelas.
+        'snap_url' => env('MIDTRANS_SNAP_URL')
+            ?: (env('MIDTRANS_IS_PRODUCTION', false)
+                ? 'https://app.midtrans.com/snap/snap.js'
+                : 'https://app.sandbox.midtrans.com/snap/snap.js'),
 
         // Basis API Snap; sandbox dan produksi memakai host berbeda.
         'api_base_url' => env('MIDTRANS_IS_PRODUCTION', false)

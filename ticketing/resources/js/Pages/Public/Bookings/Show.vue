@@ -16,6 +16,7 @@ interface PaymentInfo {
     status_label: string;
     gross_amount: number;
     snap_token: string | null;
+    snap_redirect_url: string | null;
     needs_review: boolean;
 }
 
@@ -102,10 +103,6 @@ const poll = async (): Promise<void> => {
     }
 };
 
-const pay = (): void => {
-    router.post(`/bookings/${props.booking.uuid}/pay`);
-};
-
 const cancel = (): void => {
     if (!confirm('Batalkan pemesanan ini? Kuota akan dilepas.')) {
         return;
@@ -114,17 +111,65 @@ const cancel = (): void => {
     router.post(`/bookings/${props.booking.uuid}/cancel`);
 };
 
-const openSnap = (): void => {
+/**
+ * Muat skrip Snap dari URL yang dikonfigurasi (`MIDTRANS_SNAP_URL`).
+ *
+ * Skrip tidak dimuat di `app.blade.php` karena hanya dibutuhkan di halaman
+ * pembayaran, dan memuatnya di semua halaman memperlambat LCP.
+ */
+const loadSnapScript = (): Promise<void> => {
+    if ((window as unknown as { snap?: unknown }).snap !== undefined) {
+        return Promise.resolve();
+    }
+
+    const existing = document.querySelector<HTMLScriptElement>('script[data-snap-script]');
+
+    if (existing !== null) {
+        return new Promise<void>((resolve, reject) => {
+            existing.addEventListener('load', () => resolve(), { once: true });
+            existing.addEventListener('error', () => reject(new Error('snap script failed')), { once: true });
+        });
+    }
+
+    return new Promise<void>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = props.snapUrl ?? 'https://app.sandbox.midtrans.com/snap/snap.js';
+        script.async = true;
+        script.dataset.snapScript = 'true';
+
+        if (props.snapClientKey !== null && props.snapClientKey !== '') {
+            script.dataset.clientKey = props.snapClientKey;
+        }
+
+        script.addEventListener('load', () => resolve(), { once: true });
+        script.addEventListener('error', () => reject(new Error('snap script failed')), { once: true });
+
+        document.head.appendChild(script);
+    });
+};
+
+const openSnap = async (): Promise<void> => {
     const token = props.booking.payment?.snap_token;
 
     if (token === null || token === undefined) {
         return;
     }
 
+    try {
+        await loadSnapScript();
+    } catch {
+        // Skrip tidak dapat dimuat (jaringan memblokir domain Midtrans):
+        // arahkan ke halaman pembayaran Midtrans agar transaksi tetap selesai.
+        redirectToSnapPage();
+
+        return;
+    }
+
     const snap = (window as unknown as { snap?: { pay: (token: string, options?: unknown) => void } }).snap;
 
     if (snap === undefined) {
-        // Skrip Snap belum termuat: arahkan ke URL redirect sebagai cadangan.
+        redirectToSnapPage();
+
         return;
     }
 
@@ -134,6 +179,28 @@ const openSnap = (): void => {
         onError: () => void poll(),
         onClose: () => void poll(),
     });
+};
+
+const redirectToSnapPage = (): void => {
+    const url = props.booking.payment?.snap_redirect_url;
+
+    if (url === null || url === undefined || url === '') {
+        return;
+    }
+
+    window.location.href = url;
+};
+
+const pay = (): void => {
+    // Token Snap sudah ada (mis. menekan "Coba Bayar Lagi"): langsung buka
+    // pembayaran. Bila belum, minta backend membuat transaksi lebih dulu.
+    if (props.booking.payment?.snap_token) {
+        void openSnap();
+
+        return;
+    }
+
+    router.post(`/bookings/${props.booking.uuid}/pay`);
 };
 
 onMounted(() => {
@@ -267,15 +334,6 @@ onBeforeUnmount(() => {
                             @click="pay"
                         >
                             {{ booking.payment === null ? 'Bayar Sekarang' : 'Coba Bayar Lagi' }}
-                        </button>
-
-                        <button
-                            v-if="booking.payment?.snap_token"
-                            type="button"
-                            class="rounded-xl border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 transition hover:bg-blue-50"
-                            @click="openSnap"
-                        >
-                            Buka Halaman Pembayaran
                         </button>
 
                         <button
