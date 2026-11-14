@@ -181,9 +181,9 @@ Penanggung jawab museum: _diisi_
 |---|---|---|---|
 | 9.1 | `php artisan ops:health --json` berjalan di produksi | keluaran JSON | ☐ |
 | 9.2 | Monitor eksternal menerima ping `ops:health` tiap 5 menit | konfigurasi monitor | ☐ |
-| 9.3 | Alarm gagal job terbukti berbunyi (AC-5) | tangkapan notifikasi | ☐ |
-| 9.4 | Alarm antrean menumpuk terbukti berbunyi (AC-5) | tangkapan notifikasi | ☐ |
-| 9.5 | Alarm webhook tertunda terbukti berbunyi (AC-5) | tangkapan notifikasi | ☐ |
+| 9.3 | Alarm gagal job terbukti berbunyi (AC-5) | tangkapan notifikasi | ☑ **terbukti** — `exit 1`, 6 job gagal > ambang 5 |
+| 9.4 | Alarm antrean menumpuk terbukti berbunyi (AC-5) | tangkapan notifikasi | ☑ **terbukti** — `exit 1`, job tertua 15 mnt > ambang 10 |
+| 9.5 | Alarm webhook tertunda terbukti berbunyi (AC-5) | tangkapan notifikasi | ☑ **terbukti** — `exit 1`, 15 mnt > ambang 10 |
 | 9.6 | Alarm dikirim ke saluran yang dibaca orang (email/WhatsApp/Telegram) | uji kirim | ☐ |
 | 9.7 | Log aplikasi berotasi | `logrotate` terpasang | ☐ |
 | 9.8 | Kontak penerima alarm tercatat | daftar kontak | ☐ |
@@ -191,6 +191,12 @@ Penanggung jawab museum: _diisi_
 > **AC-5 menuntut alarm "terbukti aktif", bukan sekadar terpasang.** Caranya:
 > picu kegagalan buatan (mis. hentikan worker sampai antrean menumpuk), lalu
 > tunjukkan notifikasi yang benar-benar diterima.
+>
+> **Hasil uji 14 Nov 2026.** Keempat pemeriksaan dipicu satu per satu dan
+> semuanya menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean
+> gagal, antrean menumpuk, webhook tertunda, dan pembayaran menggantung. Setelah
+> data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala
+> palsu. Rincian di `MONITORING_SETUP.md` §5.
 >
 > Pemasangan: isi `MONITORING_PING_URL` dengan ping URL Healthchecks.io;
 > `ops:health` sendiri yang mengirim ping (`/fail` saat ada alarm). Langkah

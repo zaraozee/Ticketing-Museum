@@ -124,6 +124,29 @@ Bila jumlah job gagal melewati `MONITORING_FAILED_JOBS_THRESHOLD`, alarm berbuny
 Untuk tiap bukti, simpan tangkapan layar halaman detail check yang menampilkan
 status, waktu, dan body permintaan. Inilah yang dilampirkan pada bukti AC-5.
 
+### Hasil uji alarm (14 Nov 2026)
+
+Keempat pemeriksaan dipicu satu per satu pada lingkungan pengembangan. Worker
+antrean dihentikan lebih dulu agar job benar-benar menumpuk, lalu `ops:health`
+dijalankan dan ping `/fail` terkirim ke Healthchecks.io.
+
+| # | Alarm | Cara dipicu | Output `ops:health` | Exit |
+|---|---|---|---|---|
+| 1 | Antrean gagal | 6 baris `failed_jobs` (ambang 5) | `[FAIL] Antrean gagal: 6 job gagal (ambang 5).` | 1 |
+| 2 | Antrean menunggu | job `BookingConfirmedMail` sungguhan, worker dimatikan, `created_at` dimundurkan 15 menit (ambang 10) | `[FAIL] Antrean menunggu: Job tertua berumur 15 menit (ambang 10).` | 1 |
+| 3 | Webhook tertunda | `payment_event` signature sah, `processed_at` kosong, umur 15 menit (ambang 10) | `[FAIL] Webhook tertunda: 1 notifikasi sah belum diproses lebih dari 10 menit.` | 1 |
+| 4 | Pembayaran menggantung | pembayaran `pending` melewati 30 menit | `[FAIL] Pembayaran menggantung: 3 pembayaran pending lebih dari 30 menit.` | 1 |
+
+Setelah keempatnya terbukti, seluruh data uji dihapus dan `ops:health` kembali
+`exit 0` dengan keempat pemeriksaan `[OK]` — membuktikan alarm tidak menyala
+palsu saat kondisi normal.
+
+**Batas yang jujur.** Semua alarm terbukti **berbunyi** dan ping `/fail`
+terkirim ke Healthchecks.io. Yang belum terbukti adalah **notifikasi sampai ke
+manusia** (email/Slack/Telegram pada Integrations Healthchecks.io) — itu
+konfigurasi di akun Healthchecks.io dan tidak dapat diverifikasi dari sisi
+aplikasi. Prosedurnya ada di §6.
+
 ---
 
 ## 6. Notifikasi ke manusia

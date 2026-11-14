@@ -262,7 +262,7 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 269 tes / 1039 
 | (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
 | (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` → "Backup dan restore terverifikasi: data identik sebelum dan sesudah."; 9 tes di `BackupRestoreTest` |
 | (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
-| (5) Alarm antrean/webhook terbukti aktif | ⚠️ **Sebagian** | `ops:health` + 6 tes membuktikan alarm berbunyi (exit ≠ 0) dan terjadwal tiap 5 menit; bukti notifikasi pada target monitoring nyata belum ada |
+| (5) Alarm antrean/webhook terbukti aktif | ✅ | Keempat pemeriksaan dipicu satu per satu dan masing-masing menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean gagal (6 > ambang 5), antrean menunggu (15 > ambang 10 menit), webhook tertunda (15 > ambang 10 menit), pembayaran menggantung (3 > ambang 30 menit). Setelah data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala palsu. Rincian di `MONITORING_SETUP.md` §5 |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
 
 #### Bug yang ditemukan lewat uji bayar sungguhan (14 Nov 2026)
@@ -320,19 +320,20 @@ wajib disertai uji jalur pemulihannya, bukan hanya jalur normalnya.
 |---|---|---|
 | AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi dan domain tetap | Kredensial produksi + domain HTTPS tetap + transaksi bernilai kecil nyata. **Seluruh rantai sudah terbukti di sandbox** (lihat bukti AC-4 di atas) |
 | AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot |
-| AC-5 bukti alarm pada target nyata | Bukti terkumpul untuk satu alarm (pembayaran menggantung) pada check `MusenTix ops:health`; dua alarm lain belum dipicu pada target nyata | Picu alarm antrean dan webhook pada lingkungan produksi, lalu simpan tangkapan notifikasinya |
+| AC-5 bukti alarm pada target nyata | Semua alarm terbukti berbunyi dan ping `/fail` terkirim ke Healthchecks.io; **notifikasi ke manusia** (email/Slack) belum diverifikasi | Aktifkan Integration di Healthchecks.io, lalu picu satu alarm dan pastikan notifikasinya sampai |
 | PostgreSQL | Lingkungan lokal tidak punya `pdo_pgsql` | VPS dengan PostgreSQL 15+ |
 | CI pipeline | Repositori belum punya runner | GitHub Actions/GitLab CI |
 
 Butir-butir di atas **tidak diklaim selesai**. Langkah verifikasinya sudah
 tertulis di `docs/GO_LIVE_CHECKLIST.md` §6, §8, §9, dan §12.
 
-Catatan AC-5: pemasangan monitor sudah berfungsi dan teruji. `ops:health`
-mengirim ping ke Healthchecks.io setiap kali dijalankan — URL biasa saat sehat,
-`/fail` saat ada alarm — dan ping pertama yang berisi alarm nyata ("2 pembayaran
-pending lebih dari 30 menit") sudah diterima serta menandai check berstatus
-**Down**. Yang belum ada adalah bukti untuk dua alarm lain (antrean menumpuk dan
-webhook tertunda) pada target nyata. Prosedurnya ada di `docs/MONITORING_SETUP.md` §5.
+Catatan AC-5: seluruh alarm sudah terbukti **berbunyi** dan mengirim ping `/fail`
+ke Healthchecks.io — antrean gagal, antrean menunggu, webhook tertunda, dan
+pembayaran menggantung (rincian di `docs/MONITORING_SETUP.md` §5). Setelah data
+uji dibersihkan, `ops:health` kembali `exit 0`, sehingga alarm tidak menyala
+palsu saat kondisi normal. Yang belum diverifikasi hanyalah **notifikasi sampai
+ke manusia** (Integration email/Slack di Healthchecks.io), karena itu
+konfigurasi akun monitor, bukan aplikasi.
 
 ## Fase 10 — Fitur lanjutan (berkelanjutan)
 
