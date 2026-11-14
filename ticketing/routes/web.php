@@ -87,28 +87,43 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::put('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
 
-    // My Tickets (FR-TIX-03...06)
-    Route::get('/tickets', [PublicTicketController::class, 'index'])->name('tickets.index');
-    Route::get('/tickets/{uuid}', [PublicTicketController::class, 'show'])->name('tickets.show');
-
     // Notifications (FR-NTF-02)
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead'])->name('notifications.read');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.markAllRead');
 
-    // Fase 5 — pemesanan tiket (FR-BKG-01…09, FR-PAY-05)
-    Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
-    Route::get('/museums/{museum}/book', [BookingController::class, 'create'])->name('bookings.create');
-    Route::post('/museums/{museum}/book', [BookingController::class, 'store'])
-        ->middleware('throttle:booking')
-        ->name('bookings.store');
-    Route::get('/bookings/{booking:uuid}', [BookingController::class, 'show'])->name('bookings.show');
-    Route::post('/bookings/{booking:uuid}/pay', [BookingController::class, 'pay'])
-        ->middleware('throttle:booking')
-        ->name('bookings.pay');
-    Route::post('/bookings/{booking:uuid}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
-    // Polling status: baca-saja, tidak pernah menerima status dari klien (AC-8).
-    Route::get('/bookings/{booking:uuid}/status', [BookingController::class, 'status'])->name('bookings.status');
+    /*
+     * Transaksi tiket: pemesanan dan tiket milik pengunjung (FR-BKG-01…09,
+     * FR-TIX-03…06, FR-PAY-05).
+     *
+     * Ditegakkan dengan `verified` (FR-AUTH-02). Pemesanan tiket adalah
+     * komitmen finansial dan tiket dikirim ke alamat email kontak; menerimanya
+     * dari alamat yang belum terbukti milik pendaftar berarti tiket dapat
+     * diklaim orang lain. Verifikasi juga memastikan pengingat dan e-tiket
+     * benar-benar sampai.
+     *
+     * Profil dan notifikasi sengaja TIDAK ditegakkan: keduanya dibutuhkan
+     * justru ketika verifikasi belum selesai, dan keduanya tidak menimbulkan
+     * kewajiban finansial.
+     */
+    Route::middleware('verified')->group(function () {
+        // My Tickets (FR-TIX-03...06)
+        Route::get('/tickets', [PublicTicketController::class, 'index'])->name('tickets.index');
+        Route::get('/tickets/{uuid}', [PublicTicketController::class, 'show'])->name('tickets.show');
+
+        Route::get('/bookings', [BookingController::class, 'index'])->name('bookings.index');
+        Route::get('/museums/{museum}/book', [BookingController::class, 'create'])->name('bookings.create');
+        Route::post('/museums/{museum}/book', [BookingController::class, 'store'])
+            ->middleware('throttle:booking')
+            ->name('bookings.store');
+        Route::get('/bookings/{booking:uuid}', [BookingController::class, 'show'])->name('bookings.show');
+        Route::post('/bookings/{booking:uuid}/pay', [BookingController::class, 'pay'])
+            ->middleware('throttle:booking')
+            ->name('bookings.pay');
+        Route::post('/bookings/{booking:uuid}/cancel', [BookingController::class, 'cancel'])->name('bookings.cancel');
+        // Polling status: baca-saja, tidak pernah menerima status dari klien (AC-8).
+        Route::get('/bookings/{booking:uuid}/status', [BookingController::class, 'status'])->name('bookings.status');
+    });
 
     // Organizer Area
     Route::middleware('role:organizer')->prefix('organizer')->name('organizer.')->group(function () {

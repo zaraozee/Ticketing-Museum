@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { Link } from '@inertiajs/vue3';
+import { Link, usePage } from '@inertiajs/vue3';
 import { computed, ref } from 'vue';
 import AppLayout from '../../../Layouts/AppLayout.vue';
 import SeoHead from '../../../Components/SeoHead.vue';
+import type { SharedProps } from '../../../types';
 
 interface MuseumImage {
     url: string;
@@ -55,6 +56,19 @@ const props = defineProps<{
 
 const activeImage = ref(0);
 const videoLoaded = ref(false);
+
+const page = usePage<SharedProps>();
+const user = computed(() => page.props.auth.user);
+
+/**
+ * Pemesanan memerlukan email terverifikasi (FR-AUTH-02). Pengunjung yang
+ * belum memverifikasi tetap boleh menekan tombol - mereka diarahkan ke
+ * halaman verifikasi - tetapi diberi tahu lebih dulu agar tidak merasa
+ * tiba-tiba dialihkan.
+ */
+const needsEmailVerification = computed(
+    () => Boolean(user.value) && user.value?.email_verified === false,
+);
 
 const activeImageUrl = computed(() => props.museum.images[activeImage.value]?.url ?? null);
 
@@ -240,6 +254,13 @@ const seoImage = computed<string | null>(() => props.museum.images[0]?.url ?? nu
                             >
                                 Pesan Tiket
                             </Link>
+                            <p
+                                v-if="ticketTypes.length && needsEmailVerification"
+                                class="mt-2 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800"
+                            >
+                                Verifikasi email Anda dulu untuk memesan tiket. Kami sudah mengirim tautannya ke
+                                {{ user?.email }}.
+                            </p>
                             <p v-else class="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800">
                                 Museum ini belum membuka penjualan tiket.
                             </p>

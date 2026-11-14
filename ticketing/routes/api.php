@@ -22,7 +22,11 @@ Route::middleware(['web'])->prefix('v1')->name('api.v1.')->group(function (): vo
         ->name('museums.slots');
 
     // Ticket QR token (FR-TIX-02, FR-TIX-05)
-    Route::middleware('auth')->get('tickets/{uuid}/token', [TicketTokenController::class, 'show'])
+    //
+    // `verified` ditegakkan konsisten dengan halaman tiket: token QR adalah
+    // kunci masuk museum, jadi tidak boleh lebih mudah diambil daripada
+    // halamannya sendiri.
+    Route::middleware(['auth', 'verified'])->get('tickets/{uuid}/token', [TicketTokenController::class, 'show'])
         ->name('tickets.token');
 
     // Gate Scanner API (FR-GATE-01...06)

@@ -22,9 +22,15 @@ class AdminUserSeeder extends Seeder
                 'name' => 'Super Admin',
                 'phone' => '081234567890',
                 'password' => Hash::make('password123'),
-                'email_verified_at' => now(),
             ]
         );
+
+        // `email_verified_at` tidak mass-assignable, jadi tidak dapat diisi
+        // lewat `firstOrCreate`. Akun seed harus terverifikasi agar dapat
+        // melewati middleware `verified`.
+        if (! $admin->hasVerifiedEmail()) {
+            $admin->markEmailAsVerified();
+        }
 
         if (! $admin->hasRole(UserRole::ADMIN->value)) {
             $admin->assignRole(UserRole::ADMIN->value);

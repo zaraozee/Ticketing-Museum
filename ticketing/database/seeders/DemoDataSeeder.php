@@ -27,9 +27,14 @@ class DemoDataSeeder extends Seeder
             [
                 'name' => 'Demo User',
                 'password' => bcrypt('password'),
-                'email_verified_at' => now(),
             ]
         );
+        // `email_verified_at` tidak mass-assignable: mengisinya lewat array
+        // atribut akan dibuang diam-diam, dan akun demo lalu terblokir
+        // middleware `verified`.
+        if (! $user->hasVerifiedEmail()) {
+            $user->markEmailAsVerified();
+        }
         if (! $user->hasRole('user')) {
             $user->assignRole('user');
         }
@@ -40,9 +45,11 @@ class DemoDataSeeder extends Seeder
             [
                 'name' => 'Demo Organizer',
                 'password' => bcrypt('password'),
-                'email_verified_at' => now(),
             ]
         );
+        if (! $organizer->hasVerifiedEmail()) {
+            $organizer->markEmailAsVerified();
+        }
         if (! $organizer->hasRole('organizer')) {
             $organizer->assignRole('organizer');
         }

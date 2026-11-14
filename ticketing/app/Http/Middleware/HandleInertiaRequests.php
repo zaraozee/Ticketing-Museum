@@ -50,6 +50,10 @@ class HandleInertiaRequests extends Middleware
                     'roles' => $user->getRoleNames(),
                     'is_admin' => $user->isGlobalAdmin(),
                     'is_organizer' => $user->isOrganizer(),
+                    // Dipakai UI untuk memberi tahu pengunjung bahwa pemesanan
+                    // memerlukan verifikasi email, sebelum mereka menekan
+                    // tombol dan terlempar ke halaman verifikasi.
+                    'email_verified' => $user->hasVerifiedEmail(),
                     'organizer_profile' => $user->organizerProfile ? [
                         'organization_name' => $user->organizerProfile->organization_name,
                         'status' => $user->organizerProfile->status->value,

@@ -234,8 +234,11 @@ Jalankan `php artisan queue:restart` bila worker antrean sedang hidup.
    halaman error).
 3. Klik tombol → dialihkan ke `accounts.google.com` → pilih akun → kembali ke
    aplikasi dalam keadaan sudah masuk.
-4. Akun baru otomatis dibuat dengan `role = user` dan `email_verified_at`
-   terisi, karena Google menyatakan email tersebut terverifikasi.
+4. Akun baru otomatis dibuat dengan `role = user` dan langsung terverifikasi,
+   karena Google menyatakan email tersebut terverifikasi. Ini dilakukan lewat
+   `markEmailAsVerified()` — **bukan** dengan mengisi `email_verified_at` di
+   array `User::create()`, karena kolom itu tidak mass-assignable dan nilainya
+   akan dibuang diam-diam (lihat catatan di bawah).
 
 **Kesalahan yang sering terjadi**
 
@@ -247,7 +250,18 @@ Jalankan `php artisan queue:restart` bila worker antrean sedang hidup.
 | `access_denied` | Email Anda belum ada di **Test users** (Langkah 3) |
 | `origin_mismatch` | Anda memakai alur JavaScript; aplikasi ini alur server-side, kosongkan JavaScript origins |
 | Tombol Google tidak muncul | Kredensial masih kosong atau `config:clear` belum dijalankan |
-| Masuk tapi email belum terverifikasi | Tidak terjadi di alur ini: akun Google langsung dibuat dengan `email_verified_at` terisi |
+| Masuk tapi email belum terverifikasi | Tidak terjadi di alur ini: akun Google langsung dibuat terverifikasi lewat `markEmailAsVerified()` |
+
+> **Jebakan `email_verified_at` tidak mass-assignable.** Kolom ini sengaja
+> dikeluarkan dari `$fillable` agar tidak dapat diisi dari input pengguna.
+> Konsekuensinya: **setiap** kode yang mengisinya lewat array atribut —
+> `User::create([...])`, `firstOrCreate([...], [...])`, `update([...])` — akan
+> gagal **tanpa error apa pun**, dan pengguna berakhir tidak terverifikasi.
+> Pola yang benar selalu `$user->markEmailAsVerified()`.
+>
+> Bug ini sudah dua kali terjadi di proyek ini: pada akun Google dan pada
+> seeder akun demo. Keduanya kini dikunci tes regresi
+> (`GoogleSocialAuthTest`, `SeededAccountsTest`).
 
 Catatan keamanan: token provider **tidak disimpan** (lihat tabel di atas).
 Penautan akun hanya terjadi lewat `provider_user_id`, atau lewat email yang

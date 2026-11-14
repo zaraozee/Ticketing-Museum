@@ -252,7 +252,7 @@ Gate kualitas akhir Fase 8: Pint bersih, PHPStan 0 error, **Pest 203 tes / 787 a
 
 ### Status Fase 9
 
-Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 269 tes / 1039 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses, `composer audit` tanpa advisory, `npm audit --omit=dev` 0 kerentanan.
+Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 299 tes / 1134 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses, `composer audit` tanpa advisory, `npm audit --omit=dev` 0 kerentanan.
 
 #### Bukti acceptance criteria
 
@@ -264,6 +264,64 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 269 tes / 1039 
 | (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
 | (5) Alarm antrean/webhook terbukti aktif | ✅ | Keempat pemeriksaan dipicu satu per satu dan masing-masing menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean gagal (6 > ambang 5), antrean menunggu (15 > ambang 10 menit), webhook tertunda (15 > ambang 10 menit), pembayaran menggantung (3 > ambang 30 menit). Setelah data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala palsu. Rincian di `MONITORING_SETUP.md` §5 |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
+
+#### Penegakan verifikasi email pada transaksi tiket (14 Nov 2026)
+
+FR-AUTH-02 sebelumnya hanya berupa pengiriman email: `MustVerifyEmail` dan
+halaman verifikasi sudah ada, tetapi middleware `verified` **tidak dipasang di
+rute mana pun**. Akibatnya pengunjung yang belum memverifikasi tetap dapat
+memesan tiket dan menerima e-tiket. Itu masalah nyata, bukan formalitas:
+
+- Pemesanan adalah **komitmen finansial**; e-tiket dan pengingat kunjungan
+  dikirim ke alamat email kontak.
+- Alamat yang belum terbukti milik pendaftar dapat dipakai untuk menerima tiket
+  yang menjadi hak orang lain.
+
+Middleware `verified` sekarang dipasang pada seluruh rute transaksi tiket:
+
+| Rute | Keterangan |
+|---|---|
+| `bookings.index`, `bookings.create`, `bookings.store` | Pemesanan |
+| `bookings.show`, `bookings.pay`, `bookings.cancel`, `bookings.status` | Pembayaran dan pembatalan |
+| `tickets.index`, `tickets.show` | Tiket milik pengunjung |
+| `api.v1.tickets.token` | Token QR — kunci masuk museum |
+
+Profil dan notifikasi **sengaja tidak** ditegakkan: keduanya dibutuhkan justru
+ketika verifikasi belum selesai, dan keduanya tidak menimbulkan kewajiban
+finansial. Halaman `verification.notice` tentu tetap terbuka.
+
+Perilaku yang diverifikasi lewat HTTP nyata terhadap server berjalan (bukan
+tes tiruan), dengan satu pengguna terverifikasi dan satu belum:
+
+| Halaman | Belum verifikasi | Sudah verifikasi |
+|---|---|---|
+| `/bookings` | `302` → `/verify-email` | `200` |
+| `/tickets` | `302` → `/verify-email` | `200` |
+| `/museums/{slug}/book` | `302` → `/verify-email` | `200` |
+| `/profile` | `200` | `200` |
+| `/notifications` | `200` | `200` |
+
+Setelah memverifikasi, pengunjung dikembalikan ke halaman yang tadi dituju
+(`url.intended`), bukan dibuang ke beranda. Di UI, tombol "Pesan Tiket" pada
+halaman museum menampilkan pemberitahuan lebih dulu bila email belum
+terverifikasi (`auth.user.email_verified`).
+
+#### Bug yang ditemukan saat menegakkan verifikasi (14 Nov 2026)
+
+| # | Bug | Dampak | Perbaikan |
+|---|---|---|---|
+| 6 | Seeder mengisi `email_verified_at` lewat array atribut, padahal kolom itu **tidak** mass-assignable | Akun `admin@musentix.test`, `user@test.com`, `organizer@test.com` lahir **belum terverifikasi**; begitu middleware `verified` dipasang, seluruh akun demo langsung terblokir dari halaman booking | Seeder memanggil `markEmailAsVerified()` eksplisit (`AdminUserSeeder`, `DemoDataSeeder`) |
+
+Bug 6 adalah **kelas bug yang sama** dengan bug akun Google yang ditemukan
+sebelumnya: `email_verified_at` sengaja tidak mass-assignable (batas keamanan
+agar kolom itu tidak dapat diisi dari input pengguna), sehingga setiap kode
+yang mengisinya lewat array atribut akan gagal **tanpa error**. Pola yang benar
+selalu `markEmailAsVerified()`. Regresi dikunci oleh `SeededAccountsTest`.
+
+Data dev yang terlanjur salah sudah diperbaiki (akun demo kini terverifikasi).
+Dua booking milik pengguna belum-terverifikasi diperiksa lebih dulu: keduanya
+berstatus `expired`/`cancelled` dengan **0 tiket**, jadi tidak ada tiket
+berbayar yang terkunci oleh perubahan ini.
 
 #### Bug yang ditemukan lewat uji bayar sungguhan (14 Nov 2026)
 
