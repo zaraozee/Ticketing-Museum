@@ -41,8 +41,8 @@ sudo apt install -y nginx postgresql redis-server supervisor \
 
 ```bash
 sudo -u postgres psql <<'SQL'
-CREATE USER jejak WITH PASSWORD 'ganti-dengan-kata-sandi-kuat';
-CREATE DATABASE jejak OWNER jejak;
+CREATE USER musentix WITH PASSWORD 'ganti-dengan-kata-sandi-kuat';
+CREATE DATABASE musentix OWNER musentix;
 SQL
 ```
 
@@ -51,9 +51,9 @@ SQL
 ## 4. Kode dan dependensi
 
 ```bash
-sudo mkdir -p /var/www/jejak && sudo chown "$USER":www-data /var/www/jejak
-git clone <repo> /var/www/jejak
-cd /var/www/jejak
+sudo mkdir -p /var/www/musentix && sudo chown "$USER":www-data /var/www/musentix
+git clone <repo> /var/www/musentix
+cd /var/www/musentix
 
 composer install --no-dev --optimize-autoloader --no-interaction
 npm ci && npm run build
@@ -72,7 +72,7 @@ Nilai yang **wajib** benar di produksi:
 |---|---|
 | `APP_ENV` | `production` |
 | `APP_DEBUG` | `false` |
-| `APP_URL` | `https://jejak.example.com` |
+| `APP_URL` | `https://musentix.example.com` |
 | `DB_CONNECTION` | `pgsql` |
 | `QUEUE_CONNECTION`, `CACHE_STORE`, `SESSION_DRIVER` | `redis` |
 | `TICKET_SIGNING_KEYS` | JSON `{"MT1":"<32 byte acak base64>"}` |
@@ -107,14 +107,14 @@ php artisan storage:link
 ## 6. Nginx, PHP-FPM, Supervisor
 
 ```bash
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/jejak
-sudo ln -s /etc/nginx/sites-available/jejak /etc/nginx/sites-enabled/
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/musentix
+sudo ln -s /etc/nginx/sites-available/musentix /etc/nginx/sites-enabled/
 sudo rm -f /etc/nginx/sites-enabled/default
 
-sudo cp deploy/php-fpm.conf /etc/php/8.4/fpm/pool.d/jejak.conf
-sudo cp deploy/supervisor.conf /etc/supervisor/conf.d/jejak-worker.conf
+sudo cp deploy/php-fpm.conf /etc/php/8.4/fpm/pool.d/musentix.conf
+sudo cp deploy/supervisor.conf /etc/supervisor/conf.d/musentix-worker.conf
 
-sudo mkdir -p /var/log/jejak && sudo chown www-data:www-data /var/log/jejak
+sudo mkdir -p /var/log/musentix && sudo chown www-data:www-data /var/log/musentix
 
 sudo nginx -t && sudo systemctl reload nginx
 sudo systemctl reload php8.4-fpm
@@ -133,7 +133,7 @@ sudo chmod -R ug+rwX storage bootstrap/cache
 ## 7. TLS
 
 ```bash
-sudo certbot --nginx -d jejak.example.com
+sudo certbot --nginx -d musentix.example.com
 ```
 
 Verifikasi pembaruan otomatis:
@@ -153,7 +153,7 @@ sudo crontab -u www-data -e
 Isi:
 
 ```cron
-* * * * * cd /var/www/jejak && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /var/www/musentix && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 Verifikasi:
@@ -169,7 +169,7 @@ sudo -u www-data php artisan schedule:list
 Di dashboard Midtrans (mode produksi), atur **Payment Notification URL**:
 
 ```
-https://jejak.example.com/webhooks/midtrans
+https://musentix.example.com/webhooks/midtrans
 ```
 
 Pastikan:
@@ -186,14 +186,14 @@ Pastikan:
 
 ```bash
 # Kesehatan aplikasi
-curl -sS -o /dev/null -w '%{http_code}\n' https://jejak.example.com/up
+curl -sS -o /dev/null -w '%{http_code}\n' https://musentix.example.com/up
 
 # Header keamanan
-curl -sSI https://jejak.example.com/ | grep -Ei 'strict-transport|x-content-type|x-frame|referrer-policy'
+curl -sSI https://musentix.example.com/ | grep -Ei 'strict-transport|x-content-type|x-frame|referrer-policy'
 
 # Service worker dan manifest
-curl -sSI https://jejak.example.com/sw.js | grep -i 'service-worker-allowed'
-curl -sS https://jejak.example.com/manifest.webmanifest | head -c 200
+curl -sSI https://musentix.example.com/sw.js | grep -i 'service-worker-allowed'
+curl -sS https://musentix.example.com/manifest.webmanifest | head -c 200
 
 # Alarm operasional
 php artisan ops:health
@@ -209,7 +209,7 @@ Lanjutkan dengan `GO_LIVE_CHECKLIST.md`.
 ## 11. Pembaruan aplikasi (deploy berikutnya)
 
 ```bash
-cd /var/www/jejak
+cd /var/www/musentix
 php artisan down --render="errors::503"
 git pull
 composer install --no-dev --optimize-autoloader --no-interaction

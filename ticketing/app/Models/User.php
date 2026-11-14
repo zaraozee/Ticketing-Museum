@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Mail\VerifyEmailMail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -12,6 +13,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Spatie\Permission\Traits\HasRoles;
 
@@ -75,6 +77,18 @@ class User extends Authenticatable implements MustVerifyEmail
                 $user->uuid = (string) Str::ulid();
             }
         });
+    }
+
+    /**
+     * Kirim tautan verifikasi lewat antrean (FR-AUTH-02, FR-NTF-01).
+     *
+     * Notifikasi bawaan Laravel mengirim langsung di dalam request sehingga
+     * pengguna menunggu SMTP, dan tidak tercatat di `email_logs`. Keduanya
+     * bertentangan dengan desain email transaksional aplikasi ini.
+     */
+    public function sendEmailVerificationNotification(): void
+    {
+        Mail::to($this->email)->queue(VerifyEmailMail::forUser($this));
     }
 
     /**

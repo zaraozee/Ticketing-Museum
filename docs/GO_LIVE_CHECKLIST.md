@@ -75,6 +75,12 @@ Penanggung jawab museum: _diisi_
 > **Jebakan umum.** `config:cache` yang dijalankan sebelum `.env` diubah akan
 > mengunci nilai lama. Setiap perubahan `.env` di produksi wajib diikuti
 > `php artisan config:cache` ulang.
+>
+> **Worker antrean membaca `.env` saat proses dimulai.** Setelah mengubah
+> konfigurasi email atau antrean, jalankan `php artisan queue:restart` (atau
+> hentikan lalu jalankan ulang Supervisor). Kalau tidak, worker akan terus
+> memakai konfigurasi lama — gejalanya job gagal dengan pesan koneksi SMTP ke
+> port yang sudah tidak dipakai.
 
 ---
 

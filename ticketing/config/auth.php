@@ -114,4 +114,19 @@ return [
 
     'password_timeout' => env('AUTH_PASSWORD_TIMEOUT', 10800),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Email Verification
+    |--------------------------------------------------------------------------
+    |
+    | Masa berlaku tautan verifikasi email, dalam menit. Nilai ini dipakai
+    | bersama oleh email verifikasi dan oleh pengujian, sehingga email dan
+    | validasi tanda tangan URL tidak pernah berbeda.
+    |
+    */
+
+    'verification' => [
+        'expire' => env('AUTH_VERIFICATION_EXPIRE', 60),
+    ],
+
 ];

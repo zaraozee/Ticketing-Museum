@@ -57,7 +57,7 @@ ditimpa lewat environment (`MONITORING_*`).
 Satu baris cron sudah cukup karena Laravel menjadwalkan seluruh command:
 
 ```cron
-* * * * * cd /var/www/jejak && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /var/www/musentix && php artisan schedule:run >> /dev/null 2>&1
 ```
 
 Command terjadwal:
@@ -90,14 +90,14 @@ php artisan schedule:list
 Jalur utama produksi memakai `pg_dump`:
 
 ```bash
-pg_dump --format=custom --no-owner --file=/var/backups/jejak-$(date +%F).dump "$DB_DATABASE"
+pg_dump --format=custom --no-owner --file=/var/backups/musentix-$(date +%F).dump "$DB_DATABASE"
 ```
 
 Simpan salinan terenkripsi di lokasi berbeda (NFR-14: RPO ≤ 1 jam untuk DB):
 
 ```bash
-age -r "$BACKUP_PUBLIC_KEY" -o /var/backups/jejak-$(date +%F).dump.age /var/backups/jejak-$(date +%F).dump
-aws s3 cp /var/backups/jejak-$(date +%F).dump.age "s3://$BUCKET/backups/"
+age -r "$BACKUP_PUBLIC_KEY" -o /var/backups/musentix-$(date +%F).dump.age /var/backups/musentix-$(date +%F).dump
+aws s3 cp /var/backups/musentix-$(date +%F).dump.age "s3://$BUCKET/backups/"
 ```
 
 ### 4.2 Backup portabel (semua driver)
@@ -106,7 +106,7 @@ Command bawaan aplikasi menulis satu berkas JSON berisi seluruh tabel aplikasi.
 Berguna untuk lingkungan tanpa `pg_dump` dan sebagai jalur verifikasi:
 
 ```bash
-php artisan db:backup --path=/var/backups/jejak
+php artisan db:backup --path=/var/backups/musentix
 ```
 
 Tabel framework (`migrations`, `cache`, `sessions`, `jobs`, `failed_jobs`)
@@ -134,10 +134,10 @@ sumber. Aman dijalankan di lokal maupun staging.
 
 ```bash
 # PostgreSQL (jalur utama)
-pg_restore --clean --if-exists --no-owner --dbname="$DB_DATABASE" /var/backups/jejak-2026-11-12.dump
+pg_restore --clean --if-exists --no-owner --dbname="$DB_DATABASE" /var/backups/musentix-2026-11-12.dump
 
 # Dari berkas JSON aplikasi
-php artisan db:restore /var/backups/jejak/jejak-20261112-033517.json --force
+php artisan db:restore /var/backups/musentix/musentix-20261112-033517.json --force
 ```
 
 `db:restore` **mengganti** seluruh isi tabel, bukan menggabungkan. Di produksi
@@ -176,8 +176,8 @@ penyebabnya SMTP, lihat `email_logs` (`status = 'failed'`).
 ### 5.2 Worker antrean mati
 
 ```bash
-supervisorctl status jejak-worker:*
-supervisorctl restart jejak-worker:*
+supervisorctl status musentix-worker:*
+supervisorctl restart musentix-worker:*
 ```
 
 Penyebab umum: `queue:work` berhenti karena memori (`--max-time`), atau

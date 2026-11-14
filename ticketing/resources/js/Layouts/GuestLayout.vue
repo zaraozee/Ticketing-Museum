@@ -13,7 +13,7 @@ const flash = computed(() => page.props.flash ?? {});
         <div class="sm:mx-auto sm:w-full sm:max-w-md text-center">
             <Link href="/" class="inline-flex items-center gap-2">
                 <span class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white font-bold text-xl shadow-md shadow-blue-500/20">
-                    J
+                    M
                 </span>
                 <span class="text-2xl font-bold tracking-tight text-slate-900">{{ appName }}</span>
             </Link>

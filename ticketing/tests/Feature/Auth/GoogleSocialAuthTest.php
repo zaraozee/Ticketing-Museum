@@ -12,9 +12,31 @@ beforeEach(function () {
 });
 
 test('redirects to google provider', function () {
+    config()->set('services.google.client_id', 'test-client-id');
+    config()->set('services.google.client_secret', 'test-client-secret');
+    config()->set('services.google.redirect', 'http://localhost/auth/google/callback');
+
     $response = $this->get('/auth/google');
 
     $response->assertRedirect();
+
+    expect($response->headers->get('Location'))
+        ->toContain('accounts.google.com')
+        ->toContain('client_id=test-client-id');
+});
+
+test('redirects back to login with a clear message when google is not configured', function () {
+    config()->set('services.google.client_id', null);
+    config()->set('services.google.client_secret', null);
+
+    $response = $this->get('/auth/google');
+
+    // Tanpa kredensial, Google akan menolak dengan halaman error yang tidak
+    // menjelaskan apa pun. Aplikasi harus menjelaskannya sendiri.
+    $response->assertRedirect(route('login', absolute: false))
+        ->assertSessionHas('error');
+
+    expect(session('error'))->toContain('belum dikonfigurasi');
 });
 
 test('new user can login via google and account is created', function () {

@@ -40,7 +40,7 @@ const logout = (): void => {
                     <div class="flex items-center gap-8">
                         <Link href="/" class="flex items-center gap-2" aria-label="Beranda">
                             <span class="flex h-9 w-9 items-center justify-center rounded-xl bg-blue-600 text-lg font-bold text-white shadow-sm">
-                                J
+                                M
                             </span>
                             <span class="text-xl font-bold tracking-tight text-slate-900">{{ appName }}</span>
                         </Link>

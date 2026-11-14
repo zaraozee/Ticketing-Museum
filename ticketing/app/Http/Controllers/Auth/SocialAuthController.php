@@ -17,13 +17,34 @@ class SocialAuthController extends Controller
 {
     /**
      * Redirect to Google provider.
+     *
+     * Kredensial OAuth hanya dapat dibuat di Google Cloud Console, sehingga
+     * aplikasi harus gagal dengan pesan yang jelas — bukan melempar pengguna ke
+     * halaman error Google yang tidak menjelaskan apa pun.
      */
     public function redirectToGoogle(): RedirectResponse
     {
+        if (! $this->hasGoogleCredentials()) {
+            return redirect()->route('login')
+                ->with('error', 'Masuk dengan Google belum dikonfigurasi. Silakan gunakan email dan kata sandi, atau hubungi admin.');
+        }
+
         /** @var GoogleProvider $driver */
         $driver = Socialite::driver('google');
 
         return $driver->redirect();
+    }
+
+    /**
+     * Apakah Client ID dan Secret Google sudah diisi di `.env`.
+     */
+    private function hasGoogleCredentials(): bool
+    {
+        $clientId = config('services.google.client_id');
+        $clientSecret = config('services.google.client_secret');
+
+        return is_string($clientId) && $clientId !== ''
+            && is_string($clientSecret) && $clientSecret !== '';
     }
 
     /**

@@ -113,6 +113,61 @@ Jangan menganggap semua provider memiliki alur, izin, dan ketersediaan API yang 
 | Risiko | Akun diambil alih lewat email tak terverifikasi → hanya percaya email terverifikasi; provider dinonaktifkan → fallback password |
 | Konfigurasi | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, redirect URI; layar persetujuan (consent screen) dan domain terverifikasi |
 
+### 2.1 Memasang kredensial Google (langkah demi langkah)
+
+Aplikasi sudah memiliki rute, controller, dan tes untuk login Google. Yang
+belum ada hanyalah kredensial OAuth, karena hanya dapat dibuat di Google Cloud
+Console. Tanpa kredensial, `/auth/google` kini dialihkan kembali ke halaman
+masuk dengan pesan "Masuk dengan Google belum dikonfigurasi" — bukan halaman
+error Google yang membingungkan.
+
+1. Buka <https://console.cloud.google.com/> → buat project (mis. `MusenTix`).
+2. **APIs & Services → OAuth consent screen**: pilih **External**, isi nama
+   aplikasi `MusenTix`, email dukungan, dan domain. Selama masih **Testing**,
+   tambahkan email Google Anda di **Test users** — tanpa itu Google menolak
+   dengan `access_denied`.
+3. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
+4. Application type: **Web application**.
+5. **Authorized redirect URIs** — harus **persis** sama dengan
+   `GOOGLE_REDIRECT_URI`, termasuk skema dan tanpa garis miring di akhir:
+
+   | Lingkungan | Redirect URI |
+   |---|---|
+   | Lokal | `http://localhost:8000/auth/google/callback` |
+   | Produksi | `https://domain-anda/auth/google/callback` |
+
+6. Salin **Client ID** dan **Client secret**, lalu isi `.env`:
+
+   ```dotenv
+   GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxx
+   GOOGLE_REDIRECT_URI="${APP_URL}/auth/google/callback"
+   ```
+
+7. Bersihkan cache konfigurasi agar nilai baru terbaca:
+
+   ```bash
+   php artisan config:clear
+   ```
+
+8. Uji: buka `/login` → **Masuk dengan Google**. Alur yang benar adalah
+   dialihkan ke `accounts.google.com`, memilih akun, lalu kembali ke aplikasi
+   dalam keadaan sudah masuk.
+
+**Kesalahan yang sering terjadi**
+
+| Gejala | Penyebab |
+|---|---|
+| `redirect_uri_mismatch` | URI di Google Console berbeda dengan `GOOGLE_REDIRECT_URI` (skema, port, atau garis miring di akhir) |
+| `invalid_client` | Client ID/Secret salah, atau `config:clear` belum dijalankan |
+| `access_denied` | Email Anda belum ditambahkan di **Test users** saat status consent screen masih **Testing** |
+| Masuk tapi email tidak terverifikasi | Normal: Google menyatakan email terverifikasi, sehingga akun langsung dibuat dengan `email_verified_at` terisi |
+
+Catatan keamanan: token provider **tidak disimpan** (lihat tabel di atas).
+Penautan akun hanya terjadi lewat `provider_user_id`, atau lewat email yang
+sama setelah kepemilikan terbukti — mencegah pengambilalihan akun lewat email
+yang belum terverifikasi.
+
 ---
 
 ## 3. (C) Email
@@ -138,6 +193,56 @@ Jangan menganggap semua provider memiliki alur, izin, dan ketersediaan API yang 
 | Deliverability | SPF, DKIM, DMARC pada domain pengirim; alamat `no-reply` + kontak dukungan; tangani bounce/complaint (webhook provider, tahap lanjutan) |
 | Risiko | Email masuk spam → tiket tetap tersedia di akun; kegagalan provider → ganti SMTP lewat konfigurasi |
 | Wajib MVP | Ya (verifikasi, reset, e-ticket) |
+
+### 3.1 Email di lingkungan pengembangan (Mailpit)
+
+`MAIL_MAILER=log` hanya menulis isi email ke `storage/logs/laravel.log`; email
+tidak pernah benar-benar dikirim, sehingga tautan verifikasi tidak dapat diklik.
+Untuk pengembangan, pakai **Mailpit**: server SMTP lokal yang menangkap semua
+email dan menyediakannya di peramban.
+
+```bash
+# Windows
+winget install --id axllent.mailpit
+
+# macOS
+brew install mailpit
+
+# Linux (tanpa paket)
+# unduh dari https://github.com/axllent/mailpit/releases
+
+# Jalankan: SMTP di 1025, antarmuka web di 8025
+mailpit --smtp 127.0.0.1:1025 --listen 127.0.0.1:8025
+```
+
+Lalu set `.env`:
+
+```dotenv
+MAIL_MAILER=smtp
+MAIL_HOST=127.0.0.1
+MAIL_PORT=1025
+MAIL_USERNAME=null
+MAIL_PASSWORD=null
+MAIL_FROM_ADDRESS="no-reply@musentix.test"
+```
+
+Buka <http://localhost:8025> untuk melihat email yang masuk.
+
+> **Penting.** `queue:work` membaca `.env` **saat proses dimulai**. Setelah
+> mengubah konfigurasi email, hentikan lalu jalankan ulang worker — kalau tidak,
+> worker akan terus memakai port lama dan job gagal dengan pesan
+> `Connection could not be established with host "127.0.0.1:2525"`.
+
+**Bukti pengiriman (14 Nov 2026).** Alur registrasi diuji lewat HTTP nyata:
+`POST /register` → 302 ke `/verify-email` → email berhasil masuk Mailpit dengan
+subjek "Verifikasi email Anda — MusenTix" → tautan di dalam email dibuka → 302
+ke `/?verified=1`, `email_verified_at` terisi, dan `user.email_verified` tercatat
+di `activity_logs`.
+
+Email verifikasi memakai `VerifyEmailMail` yang mewarisi `TransactionalMail`,
+sehingga pengiriman lewat antrean dan setiap percobaan tercatat di `email_logs`
+(`pending → sent/failed`). Ini menutup celah sebelumnya: notifikasi bawaan
+Laravel mengirim langsung di dalam request dan tidak tercatat di mana pun.
 
 ---
 
