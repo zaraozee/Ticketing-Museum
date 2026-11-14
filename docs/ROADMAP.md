@@ -260,16 +260,16 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 269 tes / 1039 
 |---|---|---|
 | (1) 13 skenario kunci §19 lulus | ✅ | Tabel pemetaan di bawah — 13/13 punya tes otomatis |
 | (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
-| (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` → "Backup dan restore terverifikasi: data identik sebelum dan sesudah."; 9 tes di `BackupRestoreTest` |
+| (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` (14 Nov 2026, data terkini) → 31 tabel / 228 baris, sidik jari identik sebelum dan sesudah: users=5, museums=5, bookings=11, booking_items=12, payments=11, tickets=7, ticket_scans=1, activity_logs=44; 9 tes di `BackupRestoreTest` |
 | (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
 | (5) Alarm antrean/webhook terbukti aktif | ✅ | Keempat pemeriksaan dipicu satu per satu dan masing-masing menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean gagal (6 > ambang 5), antrean menunggu (15 > ambang 10 menit), webhook tertunda (15 > ambang 10 menit), pembayaran menggantung (3 > ambang 30 menit). Setelah data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala palsu. Rincian di `MONITORING_SETUP.md` §5 |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
 
 #### Bug yang ditemukan lewat uji bayar sungguhan (14 Nov 2026)
 
-Uji pembayaran nyata di sandbox Midtrans (popup Snap di browser) mengungkap tiga
-bug yang tidak tertangkap suite otomatis. Ketiganya sudah diperbaiki dan
-masing-masing punya tes regresi.
+Uji pembayaran nyata di sandbox Midtrans (popup Snap di browser) mengungkap lima
+bug pada alur uang yang tidak tertangkap suite otomatis. Semuanya sudah
+diperbaiki dan masing-masing punya tes regresi.
 
 | # | Bug | Dampak | Perbaikan |
 |---|---|---|---|
@@ -285,6 +285,7 @@ bukan karena tes lama gagal. Ini menegaskan bahwa perbaikan pada alur uang
 wajib disertai uji jalur pemulihannya, bukan hanya jalur normalnya.
 
 #### Pemetaan 13 skenario kunci §19
+
 | # | Skenario | Bukti otomatis |
 |---|---|---|
 | 1 | Dua pengguna memesan kuota terakhir bersamaan | `QuotaConcurrencyTest` → "parallel workers competing for the last seats never oversell" (proses paralel nyata, commit sungguhan) |
