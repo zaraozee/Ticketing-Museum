@@ -104,13 +104,18 @@ class SocialAuthController extends Controller
                     $user = User::create([
                         'name' => $googleUser->getName() ?? 'Pengunjung',
                         'email' => $email,
-                        'email_verified_at' => now(),
                         'password' => null,
                     ]);
 
                     $user->assignRole(UserRole::USER->value);
 
-                    ActivityLogger::log('user.register_google', $user);
+                    // Google menyatakan email ini terverifikasi, jadi akun baru
+                    // langsung sah. `email_verified_at` tidak mass-assignable,
+                    // sehingga harus lewat method ini — kalau tidak, akun
+                    // Google berakhir dalam keadaan belum terverifikasi.
+                    $user->markEmailAsVerified();
+
+                    ActivityLogger::log('user.register_google', $user, actorId: $user->id);
                 } elseif (! $user->email_verified_at) {
                     $user->markEmailAsVerified();
                 }

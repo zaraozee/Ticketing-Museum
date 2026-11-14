@@ -37,6 +37,9 @@ class User extends Authenticatable implements MustVerifyEmail
     /**
      * The attributes that are mass assignable.
      *
+     * `email_verified_at` sengaja tidak termasuk: nilainya hanya boleh diubah
+     * lewat `markEmailAsVerified()`, bukan dari input pengguna.
+     *
      * @var list<string>
      */
     protected $fillable = [

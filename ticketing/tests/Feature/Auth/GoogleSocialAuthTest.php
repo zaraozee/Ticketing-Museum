@@ -98,6 +98,66 @@ test('a google failure produces a message a visitor can act on', function () {
         ->not->toContain('POST https://oauth2.googleapis.com');
 });
 
+test('a new google account is created already verified', function () {
+    $abstractUser = Mockery::mock(SocialiteUser::class, function (MockInterface $mock) {
+        $mock->shouldReceive('getId')->andReturn('google-id-verified');
+        $mock->shouldReceive('getName')->andReturn('Akun Google');
+        $mock->shouldReceive('getEmail')->andReturn('akun.google@gmail.com');
+    });
+
+    Socialite::shouldReceive('driver->user')->andReturn($abstractUser);
+
+    $this->get('/auth/google/callback');
+
+    $user = User::where('email', 'akun.google@gmail.com')->firstOrFail();
+
+    // Google menyatakan email terverifikasi. Akun yang lahir dalam keadaan
+    // belum terverifikasi berarti `email_verified_at` dibuang diam-diam oleh
+    // mass assignment.
+    expect($user->hasVerifiedEmail())->toBeTrue()
+        ->and($user->email_verified_at)->not->toBeNull();
+});
+
+test('the google registration log records the new user as the actor', function () {
+    $abstractUser = Mockery::mock(SocialiteUser::class, function (MockInterface $mock) {
+        $mock->shouldReceive('getId')->andReturn('google-id-actor');
+        $mock->shouldReceive('getName')->andReturn('Akun Google');
+        $mock->shouldReceive('getEmail')->andReturn('akun.aktor@gmail.com');
+    });
+
+    Socialite::shouldReceive('driver->user')->andReturn($abstractUser);
+
+    $this->get('/auth/google/callback');
+
+    $user = User::where('email', 'akun.aktor@gmail.com')->firstOrFail();
+
+    // Tanpa actor, jejak audit "siapa mendaftar" tidak dapat ditelusuri.
+    $this->assertDatabaseHas('activity_logs', [
+        'action' => 'user.register_google',
+        'actor_id' => $user->id,
+        'subject_id' => $user->id,
+    ]);
+});
+
+test('an existing unverified user is marked verified after google login', function () {
+    $existing = User::factory()->unverified()->create([
+        'email' => 'lama@gmail.com',
+    ]);
+    $existing->assignRole(UserRole::USER->value);
+
+    $abstractUser = Mockery::mock(SocialiteUser::class, function (MockInterface $mock) {
+        $mock->shouldReceive('getId')->andReturn('google-id-existing');
+        $mock->shouldReceive('getName')->andReturn('Akun Lama');
+        $mock->shouldReceive('getEmail')->andReturn('lama@gmail.com');
+    });
+
+    Socialite::shouldReceive('driver->user')->andReturn($abstractUser);
+
+    $this->get('/auth/google/callback');
+
+    expect($existing->fresh()->hasVerifiedEmail())->toBeTrue();
+});
+
 test('new user can login via google and account is created', function () {
     $abstractUser = Mockery::mock(SocialiteUser::class, function (MockInterface $mock) {
         $mock->shouldReceive('getId')->andReturn('google-id-12345');
