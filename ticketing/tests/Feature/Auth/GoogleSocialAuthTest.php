@@ -84,6 +84,20 @@ test('redirects back to login with a clear message when google is not configured
     expect(session('error'))->toContain('belum dikonfigurasi');
 });
 
+test('a google failure produces a message a visitor can act on', function () {
+    Socialite::shouldReceive('driver->user')
+        ->andThrow(new RuntimeException('Client error: `POST https://oauth2.googleapis.com/token` resulted in a `401 Unauthorized` response: redirect_uri_mismatch'));
+
+    $response = $this->get('/auth/google/callback');
+
+    $response->assertRedirect(route('login', absolute: false));
+
+    // Pengunjung tidak boleh melihat pesan teknis mentah.
+    expect(session('error'))
+        ->toContain('alamat pengalihan tidak cocok')
+        ->not->toContain('POST https://oauth2.googleapis.com');
+});
+
 test('new user can login via google and account is created', function () {
     $abstractUser = Mockery::mock(SocialiteUser::class, function (MockInterface $mock) {
         $mock->shouldReceive('getId')->andReturn('google-id-12345');

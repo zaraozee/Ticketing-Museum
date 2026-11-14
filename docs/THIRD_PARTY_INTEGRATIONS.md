@@ -254,6 +254,28 @@ Penautan akun hanya terjadi lewat `provider_user_id`, atau lewat email yang
 sama setelah kepemilikan terbukti — mencegah pengambilalihan akun lewat email
 yang belum terverifikasi.
 
+> **Jebakan `redirect_uri_mismatch` di lingkungan lokal.** `GOOGLE_REDIRECT_URI`
+> memakai `${APP_URL}`, sehingga URI pengalihan **ikut berubah** bila `APP_URL`
+> diubah. Ini mudah terjadi di proyek ini karena webhook Midtrans memakai
+> tunnel `https://musentix.loca.lt`. Bila `APP_URL` diarahkan ke tunnel, login
+> Google akan gagal dengan `redirect_uri_mismatch` karena URI itu belum
+> didaftarkan di Google Console.
+>
+> Dua cara aman:
+>
+> 1. **Tetap** `APP_URL=http://localhost:8000` selama menguji login Google.
+>    Webhook Midtrans tidak memerlukan `APP_URL` — ia memakai URL yang diisi di
+>    dashboard Midtrans.
+> 2. Bila memang perlu memakai tunnel, daftarkan **kedua** URI di Google Console
+>    (`http://localhost:8000/auth/google/callback` **dan**
+>    `https://musentix.loca.lt/auth/google/callback`). Satu client ID boleh
+>    memiliki banyak redirect URI.
+>
+> Setelah mengubah `APP_URL`, selalu jalankan `php artisan config:clear` lalu
+> `php artisan auth:check-google` — perintah itu mencetak URI yang diharapkan
+> sehingga dapat langsung dicocokkan dengan dashboard Google.
+
+
 ---
 
 ## 3. (C) Email

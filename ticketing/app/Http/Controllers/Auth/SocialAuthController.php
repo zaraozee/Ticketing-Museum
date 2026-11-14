@@ -48,6 +48,26 @@ class SocialAuthController extends Controller
     }
 
     /**
+     * Terjemahkan kegagalan OAuth menjadi pesan yang dapat ditindaklanjuti.
+     *
+     * Pesan mentah dari Socialite berisi detail teknis yang tidak membantu
+     * pengunjung museum. Penyebab yang paling sering terjadi dijelaskan
+     * langsung, sedangkan sisanya diarahkan ke admin.
+     */
+    private function describeGoogleFailure(\Throwable $exception): string
+    {
+        $message = $exception->getMessage();
+
+        return match (true) {
+            str_contains($message, 'redirect_uri_mismatch') => 'Login Google gagal: alamat pengalihan tidak cocok dengan yang didaftarkan di Google. Hubungi admin.',
+            str_contains($message, 'invalid_client') => 'Login Google gagal: kredensial aplikasi tidak sah. Hubungi admin.',
+            str_contains($message, 'access_denied') => 'Akses ke akun Google dibatalkan atau akun Anda belum terdaftar sebagai penguji. Hubungi admin.',
+            str_contains($message, 'invalid_grant') => 'Sesi login Google sudah kedaluwarsa. Silakan coba lagi.',
+            default => 'Gagal masuk dengan Google. Silakan coba lagi atau gunakan email dan kata sandi.',
+        };
+    }
+
+    /**
      * Handle callback from Google.
      */
     public function handleGoogleCallback(): RedirectResponse
@@ -57,7 +77,7 @@ class SocialAuthController extends Controller
             $googleUser = Socialite::driver('google')->user();
         } catch (\Throwable $e) {
             return redirect()->route('login')
-                ->with('error', 'Gagal masuk dengan Google: '.$e->getMessage());
+                ->with('error', $this->describeGoogleFailure($e));
         }
 
         $email = $googleUser->getEmail();
