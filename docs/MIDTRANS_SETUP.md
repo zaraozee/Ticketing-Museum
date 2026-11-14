@@ -259,3 +259,34 @@ Ini membuktikan rantai webhook → verifikasi signature → pengambilan status �
 penerbitan tiket berjalan pada data Midtrans yang nyata. Yang **belum**
 terbukti adalah pengiriman notifikasi **oleh Midtrans sendiri** (bukan oleh
 skrip uji) ke domain tetap — itu bagian dari AC-4 yang masih terblokir.
+
+### 10.1 Uji bayar sungguhan dari browser (14 Nov 2026)
+
+Pembayaran dilakukan lewat popup Snap di `http://localhost:8000` dengan kartu
+`4811 1111 1111 1114`. Midtrans menyatakan **Payment successful** Rp100.000.
+
+| Yang diperiksa | Hasil |
+|---|---|
+| Transaksi di Midtrans | `capture`, `fraud_status: accept`, `settlement_time` terisi |
+| Notifikasi masuk ke `/webhooks/midtrans` | **Tidak ada** |
+| `payment_events` baru | **Tidak ada** |
+| Booking setelah bayar | tetap `pending_payment` |
+| Setelah `payments:reconcile --minutes=1` | `confirmed`, pembayaran `paid`, **2 tiket terbit** |
+| Pemindaian gate | `not_yet_valid` — benar, jadwal kunjungan 16/11 belum tiba |
+
+**Penyebab notifikasi tidak masuk:** URL notifikasi di dashboard Midtrans masih
+menunjuk ke tunnel **lama** (`modern-rules-joke.loca.lt`, sudah mati). Tunnel
+aktif sekarang bernama lain, sehingga notifikasi dikirim ke alamat yang tidak
+ada. Log akses server hanya mencatat tiga permintaan `/webhooks/midtrans`, dan
+ketiganya berasal dari skrip uji — bukan dari Midtrans.
+
+**Pelajaran:** URL `trycloudflare`/`localtunnel` berubah setiap kali tunnel
+dijalankan ulang. Setiap kali tunnel restart, URL di dashboard **wajib**
+diperbarui, atau notifikasi akan hilang tanpa jejak apa pun di sisi aplikasi.
+Inilah alasan AC-4 menuntut domain tetap: tanpa domain tetap, keandalan
+notifikasi bergantung pada langkah manual yang mudah terlewat.
+
+Jalur pemulihan bekerja sesuai `RUNBOOK_PAYMENT_ANOMALY.md` §5: transaksi yang
+lunas tetap dikonfirmasi lewat `payments:reconcile` meski notifikasi hilang.
+Ini **bukan** pengganti webhook — jeda rekonsiliasi berarti pengunjung menunggu
+sebelum tiketnya terbit.
