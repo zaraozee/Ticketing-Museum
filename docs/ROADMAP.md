@@ -302,12 +302,19 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 249 tes / 979 a
 |---|---|---|
 | AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi | Kredensial produksi + transaksi bernilai kecil nyata |
 | AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot |
-| AC-5 bukti alarm pada target nyata | Belum ada monitor eksternal terpasang | Target monitoring produksi (mis. Healthchecks.io/UptimeRobot) |
+| AC-5 bukti alarm pada target nyata | Bukti terkumpul untuk satu alarm (pembayaran menggantung) pada check `MusenTix ops:health`; dua alarm lain belum dipicu pada target nyata | Picu alarm antrean dan webhook pada lingkungan produksi, lalu simpan tangkapan notifikasinya |
 | PostgreSQL | Lingkungan lokal tidak punya `pdo_pgsql` | VPS dengan PostgreSQL 15+ |
 | CI pipeline | Repositori belum punya runner | GitHub Actions/GitLab CI |
 
 Butir-butir di atas **tidak diklaim selesai**. Langkah verifikasinya sudah
 tertulis di `docs/GO_LIVE_CHECKLIST.md` §6, §8, §9, dan §12.
+
+Catatan AC-5: pemasangan monitor sudah berfungsi dan teruji. `ops:health`
+mengirim ping ke Healthchecks.io setiap kali dijalankan — URL biasa saat sehat,
+`/fail` saat ada alarm — dan ping pertama yang berisi alarm nyata ("2 pembayaran
+pending lebih dari 30 menit") sudah diterima serta menandai check berstatus
+**Down**. Yang belum ada adalah bukti untuk dua alarm lain (antrean menumpuk dan
+webhook tertunda) pada target nyata. Prosedurnya ada di `docs/MONITORING_SETUP.md` §5.
 
 ## Fase 10 — Fitur lanjutan (berkelanjutan)
 

@@ -62,6 +62,13 @@ return [
         'client_key' => env('MIDTRANS_CLIENT_KEY'),
         'is_production' => (bool) env('MIDTRANS_IS_PRODUCTION', false),
 
+        // Sejak 28 Oktober 2026 Midtrans memisahkan kunci pengotorisasi API
+        // (Server Key) dari kunci penanda tangan notifikasi (Signature Secret
+        // Key). Akun lama yang belum pernah meregenerasi Signature Secret Key
+        // masih memakai nilai yang sama dengan Server Key, jadi nilai kosong
+        // sengaja jatuh kembali ke Server Key agar integrasi lama tidak rusak.
+        'signature_key' => env('MIDTRANS_SIGNATURE_KEY') ?: env('MIDTRANS_SERVER_KEY'),
+
         // Snap memakai host berbeda untuk sandbox dan produksi. Nilai bawaan
         // sengaja mengikuti `MIDTRANS_IS_PRODUCTION` supaya menyalakan mode
         // produksi tidak meninggalkan skrip sandbox di halaman pembayaran —

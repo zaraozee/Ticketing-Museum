@@ -5,7 +5,10 @@ namespace App\Console\Commands;
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
@@ -51,7 +54,42 @@ class HealthCheckCommand extends Command
             }
         }
 
+        $this->pingMonitor($checks, $failing);
+
         return $failing === [] ? self::SUCCESS : self::FAILURE;
+    }
+
+    /**
+     * Beri tahu Healthchecks.io hasil pemeriksaan (AC-5 Fase 9).
+     *
+     * Memakai `/fail` alih-alih berhenti mengirim ping supaya alarm langsung
+     * berbunyi saat ada masalah, tanpa menunggu grace time habis. Kegagalan
+     * mengirim ping tidak boleh mengubah hasil pemeriksaan — monitor yang mati
+     * adalah masalah terpisah dari kesehatan aplikasi.
+     *
+     * @param  list<array{name: string, status: string, message: string}>  $checks
+     * @param  list<array{name: string, status: string, message: string}>  $failing
+     */
+    private function pingMonitor(array $checks, array $failing): void
+    {
+        $pingUrl = (string) config('ticketing.monitoring.ping_url', '');
+
+        if ($pingUrl === '') {
+            return;
+        }
+
+        $url = $failing === [] ? $pingUrl : rtrim($pingUrl, '/').'/fail';
+
+        // Ringkasan disertakan pada body agar terbaca di halaman detail check.
+        $body = collect($checks)
+            ->map(fn (array $check): string => sprintf('[%s] %s: %s', $check['status'], $check['name'], $check['message']))
+            ->implode("\n");
+
+        try {
+            Http::timeout(10)->withBody($body, 'text/plain')->post($url);
+        } catch (ConnectionException $e) {
+            Log::warning('ops.health_ping_failed', ['url' => $url, 'error' => $e->getMessage()]);
+        }
     }
 
     /**

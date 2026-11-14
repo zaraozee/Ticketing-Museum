@@ -122,6 +122,13 @@ Penanggung jawab museum: _diisi_
 > **Catatan AC-4.** Butir 6.6–6.8 memerlukan akun Midtrans produksi nyata dan
 > tidak dapat dibuktikan di lingkungan pengembangan. Lihat
 > `ROADMAP.md` Fase 9 bagian "Yang belum dapat dibuktikan".
+>
+> **Kunci Midtrans sejak 28 Oktober 2026 ada empat, bukan dua.** `MIDTRANS_SERVER_KEY`
+> harus diisi **Server Key** dari tabel `Server Keys` (dibuat lewat *Generate
+> server key*), bukan **Signature Secret Key**. Memakai Signature Secret Key
+> menghasilkan `HTTP 401` pada setiap pembuatan transaksi. Signature Secret Key
+> masuk ke `MIDTRANS_SIGNATURE_KEY`. Rincian dan cara mendiagnosisnya ada di
+> `MIDTRANS_SETUP.md`.
 
 ---
 
@@ -163,7 +170,7 @@ Penanggung jawab museum: _diisi_
 | # | Butir | Bukti | Status |
 |---|---|---|---|
 | 9.1 | `php artisan ops:health --json` berjalan di produksi | keluaran JSON | ☐ |
-| 9.2 | Monitor eksternal memanggil `ops:health` tiap 5 menit | konfigurasi monitor | ☐ |
+| 9.2 | Monitor eksternal menerima ping `ops:health` tiap 5 menit | konfigurasi monitor | ☐ |
 | 9.3 | Alarm gagal job terbukti berbunyi (AC-5) | tangkapan notifikasi | ☐ |
 | 9.4 | Alarm antrean menumpuk terbukti berbunyi (AC-5) | tangkapan notifikasi | ☐ |
 | 9.5 | Alarm webhook tertunda terbukti berbunyi (AC-5) | tangkapan notifikasi | ☐ |
@@ -174,6 +181,10 @@ Penanggung jawab museum: _diisi_
 > **AC-5 menuntut alarm "terbukti aktif", bukan sekadar terpasang.** Caranya:
 > picu kegagalan buatan (mis. hentikan worker sampai antrean menumpuk), lalu
 > tunjukkan notifikasi yang benar-benar diterima.
+>
+> Pemasangan: isi `MONITORING_PING_URL` dengan ping URL Healthchecks.io;
+> `ops:health` sendiri yang mengirim ping (`/fail` saat ada alarm). Langkah
+> lengkap dan cara mengumpulkan ketiga bukti ada di `MONITORING_SETUP.md`.
 
 ---
 

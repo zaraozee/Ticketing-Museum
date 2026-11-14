@@ -104,5 +104,10 @@ return [
         'stuck_payment_minutes' => (int) env('MONITORING_STUCK_PAYMENT_MINUTES', 30),
         // Notifikasi webhook sah yang belum diproses.
         'webhook_lag_minutes' => (int) env('MONITORING_WEBHOOK_LAG_MINUTES', 10),
+
+        // URL ping Healthchecks.io. Bila diisi, `ops:health` sendiri yang
+        // mengirim ping: URL biasa saat sehat, `<url>/fail` saat ada alarm.
+        // Dengan begitu cukup satu jadwal cron, tanpa skrip pembungkus.
+        'ping_url' => env('MONITORING_PING_URL', ''),
     ],
 ];

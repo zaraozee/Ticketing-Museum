@@ -93,7 +93,12 @@ class HttpMidtransClient implements MidtransClient
     }
 
     /**
-     * SHA512(order_id + status_code + gross_amount + ServerKey) (THIRD_PARTY §1.3).
+     * SHA512(order_id + status_code + gross_amount + SignatureSecretKey).
+     *
+     * Sejak 28 Oktober 2026 Midtrans memakai **Signature Secret Key** untuk
+     * menandatangani notifikasi, terpisah dari Server Key yang mengotorisasi
+     * API. Memakai Server Key di sini membuat setiap notifikasi ditolak begitu
+     * merchant meregenerasi Signature Secret Key.
      *
      * @param  array<string, mixed>  $payload
      */
@@ -109,7 +114,7 @@ class HttpMidtransClient implements MidtransClient
             (string) ($payload['order_id'] ?? '').
             (string) ($payload['status_code'] ?? '').
             (string) ($payload['gross_amount'] ?? '').
-            $this->serverKey()
+            $this->signatureKey()
         );
 
         // Perbandingan constant-time untuk mencegah timing attack.
@@ -128,6 +133,21 @@ class HttpMidtransClient implements MidtransClient
     private function serverKey(): string
     {
         return (string) config('services.midtrans.server_key');
+    }
+
+    /**
+     * Kunci penanda tangan notifikasi; jatuh kembali ke Server Key untuk akun
+     * yang belum memisahkan keduanya (lihat `config/services.php`).
+     */
+    private function signatureKey(): string
+    {
+        $signatureKey = config('services.midtrans.signature_key');
+
+        if (is_string($signatureKey) && $signatureKey !== '') {
+            return $signatureKey;
+        }
+
+        return $this->serverKey();
     }
 
     private function snapBaseUrl(): string
