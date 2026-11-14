@@ -89,6 +89,24 @@ class HttpMidtransClient implements MidtransClient
             throw new PaymentGatewayException('Respons status Midtrans tidak dapat dibaca.');
         }
 
+        // Midtrans membalas **HTTP 200** untuk kesalahan tingkat API dan
+        // menaruh kode sebenarnya di dalam body, mis.
+        // `{"status_code":"404","status_message":"Transaction doesn't exist."}`.
+        // Tanpa pemeriksaan ini, body kesalahan lolos sebagai status sah dan
+        // setiap notifikasi untuk transaksi yang belum ada berubah menjadi
+        // anomali palsu di antrean admin.
+        //
+        // `transaction_status` adalah penanda yang tepat: nilainya ada pada
+        // setiap respons transaksi nyata (pending, settlement, expire, ...) dan
+        // tidak pernah ada pada body kesalahan.
+        if (! isset($data['transaction_status']) || (string) $data['transaction_status'] === '') {
+            throw new PaymentGatewayException(
+                'Midtrans tidak mengenali transaksi ini: '
+                .(string) ($data['status_message'] ?? 'tanpa keterangan')
+                .' (status_code '.((string) ($data['status_code'] ?? '-')).').',
+            );
+        }
+
         return $data;
     }
 

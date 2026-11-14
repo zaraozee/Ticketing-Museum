@@ -186,3 +186,76 @@ Masa berlaku: bulan/tahun di masa depan. CVV: `123`.
 5. `cURL error 60` → bundel CA PHP tidak terbaca. Setel `curl.cainfo` dan
    `openssl.cafile` di `php.ini`.
 6. Notifikasi masuk tetapi ditolak → periksa `MIDTRANS_SIGNATURE_KEY`.
+
+---
+
+## 9. Jebakan yang sudah pernah menggigit proyek ini
+
+Tiga kesalahan di bawah semuanya lolos dari tes otomatis pada awalnya, karena
+`FakeMidtransClient` tidak menyentuh jalur HTTP yang sebenarnya.
+
+### 9.1 Kunci tertukar (HTTP 401)
+
+`MIDTRANS_SERVER_KEY` diisi Signature Secret Key. Format benar, panjang benar,
+disalin langsung dari dashboard — tetapi kunci itu tidak dapat mengotorisasi
+API. Gejalanya `401 {"error":"Unauthorized"}` pada setiap pembuatan transaksi.
+
+### 9.2 Signature memakai Server Key (notifikasi ditolak)
+
+Kode memakai Server Key untuk menghitung `SHA512(order_id + status_code +
+gross_amount + kunci)`. Selama Server Key dan Signature Secret Key bernilai
+sama, tidak ada gejala. Begitu merchant meregenerasi Signature Secret Key,
+**setiap** notifikasi ditolak — pembayaran lunas tidak pernah menjadi tiket.
+
+Bukti dari data nyata (respons `GET /v2/{order}/status` Midtrans):
+
+```
+signature_key_prefix      : SB-Mid-server-monWgZ   (Signature Secret Key)
+server_key_prefix         : SB-Mid-server-QPNTYa   (Server Key)
+keys_differ               : true
+valid_with_signature_key  : true    <- signature asli Midtrans LOLOS
+valid_with_server_key     : false   <- dengan Server Key GAGAL
+```
+
+Dikunci oleh `tests/Feature/Payment/MidtransSignatureTest.php`.
+
+### 9.3 Kesalahan API dibungkus HTTP 200
+
+Midtrans membalas **HTTP 200** untuk kesalahan tingkat API, dengan kode
+sebenarnya di dalam body:
+
+```json
+{"status_code":"404","status_message":"Transaction doesn't exist."}
+```
+
+Kode yang hanya memeriksa `$response->successful()` menerima body itu sebagai
+status transaksi yang sah. Akibatnya setiap notifikasi untuk transaksi yang
+belum dikenal berubah menjadi **anomali palsu** di antrean admin, dan penyebab
+sebenarnya tidak pernah tercatat.
+
+Perbaikannya: `fetchTransactionStatus()` mewajibkan adanya
+`transaction_status` — penanda yang ada pada setiap respons transaksi nyata
+(`pending`, `settlement`, `expire`, ...) dan tidak pernah ada pada body
+kesalahan. Dikunci oleh `tests/Feature/Payment/MidtransStatusApiTest.php`.
+
+---
+
+## 10. Hasil uji sandbox yang sudah dilakukan
+
+Transaksi dibuat lewat Core API sandbox, lalu notifikasi dikirim ke endpoint
+webhook aplikasi melalui tunnel publik:
+
+| Tahap | Hasil |
+|---|---|
+| Tokenisasi kartu `4811 1111 1111 1114` | `token_id` diterima |
+| Charge kartu (`secure=false`) | `transaction_status: capture` |
+| `GET /v2/{order}/status` | `transaction_status` sah, signature Midtrans terverifikasi |
+| Notifikasi ke `/webhooks/midtrans` | `HTTP 200`, `result: applied` |
+| Booking | `pending_payment` → **`confirmed`** |
+| Pembayaran | `pending` → **`paid`** |
+| Tiket | 0 → **1 tiket terbit** |
+
+Ini membuktikan rantai webhook → verifikasi signature → pengambilan status →
+penerbitan tiket berjalan pada data Midtrans yang nyata. Yang **belum**
+terbukti adalah pengiriman notifikasi **oleh Midtrans sendiri** (bukan oleh
+skrip uji) ke domain tetap — itu bagian dari AC-4 yang masih terblokir.
