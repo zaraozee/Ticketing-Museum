@@ -113,8 +113,8 @@ Penanggung jawab museum: _diisi_
 | 6.2 | `MIDTRANS_SERVER_KEY` produksi terpasang, tidak pernah masuk repo | cek `.env` di server | ☐ |
 | 6.3 | `MIDTRANS_CLIENT_KEY` produksi terpasang | halaman bayar memuat Snap | ☐ |
 | 6.4 | URL notifikasi di dashboard Midtrans = `https://domain/webhooks/midtrans` | tangkapan dashboard | ☐ |
-| 6.5 | Notifikasi uji dari dashboard diterima (200) | log `payment.webhook_applied` | ☐ |
-| 6.6 | **Pembayaran produksi bernilai kecil berhasil end-to-end** (AC-4) | booking → tiket → scan `valid` | ☐ |
+| 6.5 | Notifikasi uji dari dashboard diterima (200) | log `payment.webhook_applied` | ☑ **sandbox** — 4 notifikasi uji diterima, signature valid (`payment_events` 10/12/13/14) |
+| 6.6 | **Pembayaran produksi bernilai kecil berhasil end-to-end** (AC-4) | booking → tiket → scan `valid` | ☐ produksi — **sandbox terbukti**: `MUS-FT6U7E`, notifikasi masuk otomatis 3 detik, tiket `7B8M9VJPQZ` |
 | 6.7 | Tiket hasil pembayaran uji dapat dipindai di gate | riwayat scan | ☐ |
 | 6.8 | Refund transaksi uji diproses | status `refunded`, tiket `voided` | ☐ |
 | 6.9 | `payments:reconcile` berjalan tanpa error di produksi | log terjadwal | ☐ |
@@ -123,6 +123,15 @@ Penanggung jawab museum: _diisi_
 > **Catatan AC-4.** Butir 6.6–6.8 memerlukan akun Midtrans produksi nyata dan
 > tidak dapat dibuktikan di lingkungan pengembangan. Lihat
 > `ROADMAP.md` Fase 9 bagian "Yang belum dapat dibuktikan".
+>
+> **Yang sudah terbukti di sandbox (14 Nov 2026).** Rantai penuh berjalan dengan
+> notifikasi nyata dari Midtrans: pembayaran `MUS-FT6U7E` (Rp50.000) →
+> notifikasi masuk **sendiri** 3 detik kemudian (`payment_events` id 16,
+> signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed`
+> → tiket `7B8M9VJPQZ` terbit. `signature_key` notifikasi identik dengan
+> `GET /v2/{order}/status`. Sisa pekerjaan AC-4 murni lingkungan: akun
+> produksi, domain tetap, satu transaksi kecil. Rincian di
+> `MIDTRANS_SETUP.md` §10.3.
 >
 > **Kunci Midtrans sejak 28 Oktober 2026 ada empat, bukan dua.** `MIDTRANS_SERVER_KEY`
 > harus diisi **Server Key** dari tabel `Server Keys` (dibuat lewat *Generate

@@ -261,7 +261,7 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 269 tes / 1039 
 | (1) 13 skenario kunci §19 lulus | ✅ | Tabel pemetaan di bawah — 13/13 punya tes otomatis |
 | (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
 | (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` → "Backup dan restore terverifikasi: data identik sebelum dan sesudah."; 9 tes di `BackupRestoreTest` |
-| (4) Pembayaran produksi bernilai kecil end-to-end | ⛔ **Terblokir** | Butuh akun Midtrans produksi nyata — lihat tabel item terblokir. Yang **sudah** terbukti di sandbox: (a) bayar nyata lewat popup Snap → booking `confirmed` → 2 tiket terbit; (b) notifikasi uji dari dashboard Midtrans **diterima** dengan signature valid (3 kali, `payment_events` id 10/12/13) — membuktikan Midtrans dapat menjangkau endpoint dan URL dashboard benar; (c) verifikasi signature menerima tanda tangan asli Midtrans lewat URL tetap (200 `applied`, lalu `ignored_duplicate`); (d) scan gate menolak dengan `not_yet_valid` sesuai jadwal |
+| (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
 | (5) Alarm antrean/webhook terbukti aktif | ⚠️ **Sebagian** | `ops:health` + 6 tes membuktikan alarm berbunyi (exit ≠ 0) dan terjadwal tiap 5 menit; bukti notifikasi pada target monitoring nyata belum ada |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
 
@@ -318,7 +318,7 @@ wajib disertai uji jalur pemulihannya, bukan hanya jalur normalnya.
 
 | Butir | Penghalang | Yang dibutuhkan |
 |---|---|---|
-| AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi | Kredensial produksi + transaksi bernilai kecil nyata |
+| AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi dan domain tetap | Kredensial produksi + domain HTTPS tetap + transaksi bernilai kecil nyata. **Seluruh rantai sudah terbukti di sandbox** (lihat bukti AC-4 di atas) |
 | AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot |
 | AC-5 bukti alarm pada target nyata | Bukti terkumpul untuk satu alarm (pembayaran menggantung) pada check `MusenTix ops:health`; dua alarm lain belum dipicu pada target nyata | Picu alarm antrean dan webhook pada lingkungan produksi, lalu simpan tangkapan notifikasinya |
 | PostgreSQL | Lingkungan lokal tidak punya `pdo_pgsql` | VPS dengan PostgreSQL 15+ |

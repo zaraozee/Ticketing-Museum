@@ -256,9 +256,7 @@ webhook aplikasi melalui tunnel publik:
 | Tiket | 0 → **1 tiket terbit** |
 
 Ini membuktikan rantai webhook → verifikasi signature → pengambilan status →
-penerbitan tiket berjalan pada data Midtrans yang nyata. Yang **belum**
-terbukti adalah pengiriman notifikasi **oleh Midtrans sendiri** (bukan oleh
-skrip uji) ke domain tetap — itu bagian dari AC-4 yang masih terblokir.
+penerbitan tiket berjalan pada data Midtrans yang nyata.
 
 ### 10.1 Uji bayar sungguhan dari browser (14 Nov 2026)
 
@@ -297,14 +295,15 @@ Tombol **Test notification URL** di **Settings → Payment → Payment notificat
 URL** mengirim POST **sungguhan** dari server Midtrans ke endpoint aplikasi.
 Tombol ini bukan simulasi di sisi browser.
 
-Tiga kali tombol ditekan, tiga notifikasi masuk dan tercatat di
+Empat kali tombol ditekan, empat notifikasi masuk dan tercatat di
 `payment_events`:
 
 | # | `order_id` | Signature | Hasil | Waktu |
 |---|---|---|---|---|
-| 1 | `payment_notif_test_M473511615_f39ecdd4…` | **valid** | `unknown_order` | 09:33:41 |
-| 2 | `payment_notif_test_M473511615_e573ec1c…` | **valid** | `unknown_order` | 09:55:04 |
-| 3 | `payment_notif_test_M473511615_2b622c93…` | **valid** | `unknown_order` | 09:56:33 |
+| 10 | `payment_notif_test_M473511615_f39ecdd4…` | **valid** | `unknown_order` | 09:33:41 |
+| 12 | `payment_notif_test_M473511615_e573ec1c…` | **valid** | `unknown_order` | 09:55:04 |
+| 13 | `payment_notif_test_M473511615_2b622c93…` | **valid** | `unknown_order` | 09:56:33 |
+| 14 | `payment_notif_test_M473511615_8d17b9bd…` | **valid** | `unknown_order` | 10:00:59 |
 
 Yang dibuktikan ketiganya:
 
@@ -320,14 +319,45 @@ Yang dibuktikan ketiganya:
 memakai `order_id` karangan (`payment_notif_test_…`) yang tidak pernah ada di
 database. Yang diuji adalah jalur pengiriman dan verifikasi, bukan transaksi.
 
-> **Catatan penting.** Notifikasi uji ini **tidak** membuktikan notifikasi
-> transaksi nyata sampai. Untuk itu, transaksi `MUS-NM2CQT-1` harus dikirim
-> ulang lewat **Resend notification** pada detail transaksi, dan hasilnya harus
-> muncul di `payment_events` dengan `order_id: MUS-NM2CQT-1`. Karena transaksi
-> itu sudah lunas dan tiketnya terbit, jawabannya akan
-> `ignored_duplicate` — dan itu memang hasil yang diharapkan.
+### 10.3 AC-4: notifikasi transaksi nyata masuk tanpa rekonsiliasi
 
-### 10.3 URL tetap dan verifikasi signature dengan data asli Midtrans
+Ini bukti yang selama ini dicari. Pembayaran **baru** dilakukan dari browser
+(`MUS-FT6U7E`, Rp50.000, kartu `4811 1111 1111 1114`), dan notifikasi datang
+**sendiri** dari Midtrans — `payments:reconcile` **tidak** dijalankan.
+
+| Yang diperiksa | Hasil |
+|---|---|
+| `payment_events` id 16 | `order_id: MUS-FT6U7E-1`, `signature_valid: true`, `result: applied` |
+| Waktu transaksi Midtrans → waktu proses | 17:10:08 → **17:10:11** (3 detik) |
+| Booking `MUS-FT6U7E` | `pending_payment` → **`confirmed`** |
+| Pembayaran | `pending` → **`paid`**, `needs_review: false` |
+| Tiket | **1 tiket aktif** (`7B8M9VJPQZ`) |
+| `payments:reconcile` dijalankan? | **Tidak** |
+| `ops:health` | exit 0 |
+
+**Bukti kriptografis.** `signature_key` pada payload notifikasi
+(`0b56cbd7a1853437…`) **identik** dengan `signature_key` dari
+`GET /v2/MUS-FT6U7E-1/status`. Hanya Midtrans yang dapat menghasilkan nilai
+itu, sehingga payload tidak mungkin disusun sendiri.
+
+**Field yang tidak dapat dikarang aplikasi** juga ikut terbawa:
+`approval_code: 1794651009442`, `masked_card: 48111111-1114`, `bank: cimb`,
+`channel_response_code: "00"`, `settlement_time` terisi.
+
+**Tentang OTP.** Kartu uji sandbox `4811 1111 1114` disetujui langsung tanpa
+3DS/OTP, sehingga `transaction_status` langsung `capture` dan
+`fraud_status: accept`. Ini normal untuk sandbox, **bukan** indikasi error.
+Di produksi, kartu asli akan meminta 3DS dan `fraud_status` dapat bernilai
+`challenge`; kode sudah memetakan `capture` + `challenge` ke `pending` (bukan
+`paid`) sehingga tiket tidak terbit sebelum bank menyetujui.
+
+> **Batas yang jujur.** AC-4 menuntut pembayaran **produksi**. Yang terbukti di
+> sini adalah seluruh rantai bekerja di **sandbox** dengan notifikasi nyata dari
+> Midtrans. Sisa pekerjaan AC-4 murni lingkungan: akun Midtrans produksi,
+> domain tetap, dan satu transaksi bernilai kecil. Bukan lagi pertanyaan
+> "apakah sistemnya bekerja".
+
+### 10.4 URL tetap dan verifikasi signature dengan data asli Midtrans
 
 Tunnel `localtunnel` dengan subdomain tetap dipakai agar URL notifikasi tidak
 berubah setiap restart:
