@@ -4,6 +4,7 @@ import GuestLayout from '../../Layouts/GuestLayout.vue';
 
 defineProps<{
     status?: string;
+    googleEnabled?: boolean;
 }>();
 
 const form = useForm({
@@ -29,8 +30,8 @@ const submit = () => {
             Masuk ke akun Anda untuk melihat tiket atau mengelola museum
         </template>
 
-        <!-- Social Login: Google -->
-        <div class="mb-6">
+        <!-- Social Login: Google (hanya tampil bila kredensial OAuth sudah diisi) -->
+        <div v-if="googleEnabled" class="mb-6">
             <a
                 href="/auth/google"
                 class="w-full flex items-center justify-center gap-3 py-2.5 px-4 border border-slate-300 rounded-xl text-sm font-semibold text-slate-700 bg-white hover:bg-slate-50 transition shadow-sm"

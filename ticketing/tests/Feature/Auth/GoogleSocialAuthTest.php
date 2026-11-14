@@ -11,6 +11,51 @@ beforeEach(function () {
     $this->seed(RolePermissionSeeder::class);
 });
 
+test('the login page hides the google button when credentials are missing', function () {
+    config()->set('services.google.client_id', null);
+    config()->set('services.google.client_secret', null);
+
+    $response = $this->get('/login');
+
+    $response->assertOk();
+    // Tombol yang membawa pengguna ke halaman error Google lebih buruk
+    // daripada tidak ada tombol sama sekali.
+    $response->assertInertia(fn ($page) => $page->where('googleEnabled', false));
+});
+
+test('the login page shows the google button once credentials are configured', function () {
+    config()->set('services.google.client_id', 'test-client-id');
+    config()->set('services.google.client_secret', 'test-client-secret');
+
+    $response = $this->get('/login');
+
+    $response->assertOk();
+    $response->assertInertia(fn ($page) => $page->where('googleEnabled', true));
+});
+
+test('the google configuration check fails while credentials are missing', function () {
+    config()->set('services.google.client_id', null);
+    config()->set('services.google.client_secret', null);
+
+    // Perintah ini yang dipakai saat menyiapkan lingkungan; ia harus
+    // menunjuk variabel yang kurang, bukan sekadar gagal tanpa petunjuk.
+    $this->artisan('auth:check-google')
+        ->expectsOutputToContain('GOOGLE_CLIENT_ID: kosong')
+        ->expectsOutputToContain('GOOGLE_CLIENT_SECRET: kosong')
+        ->assertFailed();
+});
+
+test('the google configuration check passes when credentials are configured', function () {
+    config()->set('services.google.client_id', 'test-client-id.apps.googleusercontent.com');
+    config()->set('services.google.client_secret', 'GOCSPX-test-secret-value');
+    config()->set('services.google.redirect', 'http://localhost:8000/auth/google/callback');
+    config()->set('app.url', 'http://localhost:8000');
+
+    $this->artisan('auth:check-google')
+        ->expectsOutputToContain('Driver Google siap dipakai')
+        ->assertSuccessful();
+});
+
 test('redirects to google provider', function () {
     config()->set('services.google.client_id', 'test-client-id');
     config()->set('services.google.client_secret', 'test-client-secret');

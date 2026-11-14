@@ -117,51 +117,137 @@ Jangan menganggap semua provider memiliki alur, izin, dan ketersediaan API yang 
 
 Aplikasi sudah memiliki rute, controller, dan tes untuk login Google. Yang
 belum ada hanyalah kredensial OAuth, karena hanya dapat dibuat di Google Cloud
-Console. Tanpa kredensial, `/auth/google` kini dialihkan kembali ke halaman
-masuk dengan pesan "Masuk dengan Google belum dikonfigurasi" — bukan halaman
-error Google yang membingungkan.
+Console.
 
-1. Buka <https://console.cloud.google.com/> → buat project (mis. `MusenTix`).
-2. **APIs & Services → OAuth consent screen**: pilih **External**, isi nama
-   aplikasi `MusenTix`, email dukungan, dan domain. Selama masih **Testing**,
-   tambahkan email Google Anda di **Test users** — tanpa itu Google menolak
-   dengan `access_denied`.
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID**.
-4. Application type: **Web application**.
-5. **Authorized redirect URIs** — harus **persis** sama dengan
-   `GOOGLE_REDIRECT_URI`, termasuk skema dan tanpa garis miring di akhir:
+**Tidak perlu kartu kredit dan tidak perlu mengaktifkan billing.** OAuth client
+ID termasuk layanan gratis. Bila Google menampilkan halaman *"Try Google Cloud
+for free — Step 2 of 2 Payment Information"*, tutup halaman itu: Anda sedang
+memasuki alur pendaftaran billing, bukan alur pembuatan kredensial. Tekan
+**Esc** atau **Cancel**, lalu buka menu langsung ke **Google Auth Platform**.
+
+#### Langkah 1 — Buat project
+
+1. Buka <https://console.cloud.google.com/>.
+2. Di bilah atas, klik pemilih project → **New project**.
+3. Nama: `MusenTix`. Location: *No organization*. Klik **Create**.
+4. Pastikan project `MusenTix` terpilih di bilah atas sebelum lanjut.
+
+#### Langkah 2 — Daftarkan aplikasi (Branding)
+
+Google mewajibkan pendaftaran aplikasi **sebelum** client ID dapat dibuat.
+
+1. Buka menu → **APIs & Services** → **OAuth consent screen**.
+   (Pada UI terbaru menu ini bernama **Google Auth Platform → Branding**.)
+2. Bila muncul tombol **Get started**, klik.
+3. Isi:
+   - **App name**: `MusenTix`
+   - **User support email**: email Google Anda
+   - **Audience / User type**: **External** (wajib untuk akun Gmail biasa;
+     `Internal` hanya untuk Google Workspace)
+   - **Developer contact information**: email Google Anda
+4. Klik **Save and continue** sampai selesai.
+
+#### Langkah 3 — Tambahkan diri Anda sebagai test user
+
+Selama aplikasi belum diverifikasi Google, hanya akun yang terdaftar di sini
+yang boleh masuk. **Melewati langkah ini adalah penyebab `access_denied` paling
+umum.**
+
+1. Buka **Google Auth Platform → Audience** (atau **OAuth consent screen →
+   Test users**).
+2. Klik **Add users** → masukkan email Google Anda
+   (mis. `zahra.nabhila.khairunnisa@gmail.com`) → **Save**.
+3. Pastikan **Publishing status** masih **Testing**. Untuk uji lokal ini tidak
+   perlu mempublikasikan atau meminta verifikasi Google.
+
+#### Langkah 4 — Buat OAuth client ID
+
+1. Buka **Google Auth Platform → Clients** (atau **APIs & Services →
+   Credentials**).
+2. Klik **Create client** / **Create credentials → OAuth client ID**.
+3. **Application type**: **Web application**.
+4. **Name**: `MusenTix Local` (nama ini hanya tampil di console).
+5. Pada **Authorized redirect URIs**, klik **Add URI** dan masukkan **persis**:
+
+   ```
+   http://localhost:8000/auth/google/callback
+   ```
 
    | Lingkungan | Redirect URI |
    |---|---|
    | Lokal | `http://localhost:8000/auth/google/callback` |
    | Produksi | `https://domain-anda/auth/google/callback` |
 
-6. Salin **Client ID** dan **Client secret**, lalu isi `.env`:
+   Aturan: skema harus sama (`http` untuk localhost boleh), port harus
+   ditulis, **tanpa** garis miring di akhir, dan tanpa spasi.
 
-   ```dotenv
-   GOOGLE_CLIENT_ID=xxxxxxxx.apps.googleusercontent.com
-   GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxx
-   GOOGLE_REDIRECT_URI="${APP_URL}/auth/google/callback"
-   ```
+   > **Authorized JavaScript origins tidak perlu diisi.** Aplikasi ini memakai
+   > alur server-side (Authorization Code), bukan popup JavaScript.
 
-7. Bersihkan cache konfigurasi agar nilai baru terbaca:
+6. Klik **Create**.
 
-   ```bash
-   php artisan config:clear
-   ```
+#### Langkah 5 — Salin kredensial
 
-8. Uji: buka `/login` → **Masuk dengan Google**. Alur yang benar adalah
-   dialihkan ke `accounts.google.com`, memilih akun, lalu kembali ke aplikasi
-   dalam keadaan sudah masuk.
+Jendela **OAuth client created** menampilkan **Client ID** dan **Client
+secret**.
+
+> **Penting sejak 2025.** Client secret hanya ditampilkan **sekali** dan
+> langsung di-hash. Salin sekarang, atau unduh JSON-nya. Kalau nanti hilang,
+> Anda harus membuat secret baru lewat **Add secret** pada halaman client.
+
+- **Client ID** berakhiran `.apps.googleusercontent.com`
+- **Client secret** diawali `GOCSPX-`
+
+#### Langkah 6 — Isi `.env`
+
+Buka `C:\PROJECT-TICKETING\ticketing\.env` dan tambahkan (atau isi bila sudah
+ada):
+
+```dotenv
+GOOGLE_CLIENT_ID=123456789-xxxxxxxx.apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-xxxxxxxxxxxxxxxx
+GOOGLE_REDIRECT_URI="${APP_URL}/auth/google/callback"
+```
+
+`APP_URL` sudah bernilai `http://localhost:8000`, sehingga baris ketiga
+menghasilkan `http://localhost:8000/auth/google/callback` — sama dengan yang
+didaftarkan di Langkah 4.
+
+> Jangan menambahkan tanda kutip ganda pada Client ID/Secret, dan jangan
+> menambahkan spasi di sekitar `=`.
+
+#### Langkah 7 — Bersihkan cache dan jalankan ulang worker
+
+```bash
+cd C:\PROJECT-TICKETING\ticketing
+php artisan config:clear
+```
+
+Bila `.env` berubah, proses yang sudah berjalan **tidak** membacanya ulang.
+Jalankan `php artisan queue:restart` bila worker antrean sedang hidup.
+
+#### Langkah 8 — Uji
+
+1. Buka <http://localhost:8000/login>.
+2. Tombol **Masuk dengan Google** sekarang muncul (sebelumnya disembunyikan
+   selama kredensial kosong — ini disengaja agar tidak ada tombol yang berujung
+   halaman error).
+3. Klik tombol → dialihkan ke `accounts.google.com` → pilih akun → kembali ke
+   aplikasi dalam keadaan sudah masuk.
+4. Akun baru otomatis dibuat dengan `role = user` dan `email_verified_at`
+   terisi, karena Google menyatakan email tersebut terverifikasi.
 
 **Kesalahan yang sering terjadi**
 
-| Gejala | Penyebab |
+| Gejala | Penyebab dan perbaikan |
 |---|---|
-| `redirect_uri_mismatch` | URI di Google Console berbeda dengan `GOOGLE_REDIRECT_URI` (skema, port, atau garis miring di akhir) |
-| `invalid_client` | Client ID/Secret salah, atau `config:clear` belum dijalankan |
-| `access_denied` | Email Anda belum ditambahkan di **Test users** saat status consent screen masih **Testing** |
-| Masuk tapi email tidak terverifikasi | Normal: Google menyatakan email terverifikasi, sehingga akun langsung dibuat dengan `email_verified_at` terisi |
+| `Missing required parameter: client_id` / `Error 400: invalid_request` | `GOOGLE_CLIENT_ID` kosong. Isi `.env` lalu `php artisan config:clear`. Ini gejala sebelum kredensial dipasang |
+| `redirect_uri_mismatch` | URI di Google Console berbeda dengan `GOOGLE_REDIRECT_URI`. Periksa skema, port `:8000`, dan garis miring di akhir |
+| `invalid_client` | Client ID/Secret salah salin, atau secret sudah dirotasi |
+| `access_denied` | Email Anda belum ada di **Test users** (Langkah 3) |
+| `origin_mismatch` | Anda memakai alur JavaScript; aplikasi ini alur server-side, kosongkan JavaScript origins |
+| Tombol Google tidak muncul | Kredensial masih kosong atau `config:clear` belum dijalankan |
+| Masuk tapi email belum terverifikasi | Tidak terjadi di alur ini: akun Google langsung dibuat dengan `email_verified_at` terisi |
 
 Catatan keamanan: token provider **tidak disimpan** (lihat tabel di atas).
 Penautan akun hanya terjadi lewat `provider_user_id`, atau lewat email yang

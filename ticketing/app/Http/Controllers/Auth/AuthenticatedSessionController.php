@@ -20,6 +20,10 @@ class AuthenticatedSessionController extends Controller
     {
         return Inertia::render('Auth/Login', [
             'status' => session('status'),
+            // Tombol Google disembunyikan bila kredensial OAuth belum diisi,
+            // agar pengguna tidak dibawa ke halaman error Google.
+            'googleEnabled' => filled(config('services.google.client_id'))
+                && filled(config('services.google.client_secret')),
         ]);
     }
 
