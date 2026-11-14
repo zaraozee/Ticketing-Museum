@@ -16,7 +16,7 @@ class ManifestController extends Controller
 {
     public function __invoke(): JsonResponse
     {
-        $appName = (string) config('app.name', 'Jejak');
+        $appName = (string) config('app.name', 'MusenTix');
         $pwa = (array) config('ticketing.pwa', []);
 
         $themeColor = (string) ($pwa['theme_color'] ?? '#2563eb');

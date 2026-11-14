@@ -7,7 +7,7 @@ import { useOnlineStatus } from '../composables/useOnlineStatus';
 import { clearOfflineTickets } from '../composables/offlineTickets';
 
 const page = usePage<SharedProps>();
-const appName = computed(() => page.props.appName || 'Jejak');
+const appName = computed(() => page.props.appName || 'MusenTix');
 const user = computed(() => page.props.auth.user);
 const flash = computed(() => page.props.flash ?? {});
 const { online } = useOnlineStatus();

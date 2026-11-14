@@ -39,7 +39,7 @@ class HandleInertiaRequests extends Middleware
 
         return [
             ...parent::share($request),
-            'appName' => config('app.name', 'Jejak Ticketing'),
+            'appName' => config('app.name', 'MusenTix'),
             'auth' => [
                 'user' => $user ? [
                     'id' => $user->id,

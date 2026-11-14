@@ -1,4 +1,4 @@
-# Laporan Tinjauan Keamanan — Jejak
+# Laporan Tinjauan Keamanan — MusenTix
 
 Tinjauan keamanan Fase 9 terhadap checklist `SYSTEM_DESIGN.md` §16, ditambah
 pemeriksaan dependensi. Dokumen ini mencatat **apa yang diperiksa**, **bukti

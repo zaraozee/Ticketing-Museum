@@ -55,7 +55,7 @@
 <script>
     (function () {
         var list = document.getElementById('list');
-        var DB_NAME = 'jejak-tickets';
+        var DB_NAME = 'musentix-tickets';
         var STORE = 'tickets';
 
         function renderEmpty() {

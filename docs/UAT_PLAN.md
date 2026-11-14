@@ -1,4 +1,4 @@
-# Rencana dan Lembar UAT — Jejak
+# Rencana dan Lembar UAT — MusenTix
 
 Uji terima pengguna (User Acceptance Test) oleh museum pilot sebelum go-live.
 Dokumen ini adalah **lembar kerja**: kolom hasil diisi saat UAT berlangsung,
@@ -147,7 +147,7 @@ kosmetik).
 UAT dinyatakan **disetujui** apabila seluruh skenario kritis berstatus Lulus
 dan tidak ada temuan Kritis/Tinggi yang terbuka.
 
-> "Saya telah menjalankan dan mengamati skenario UAT di atas. Sistem Jejak
+> "Saya telah menjalankan dan mengamati skenario UAT di atas. Sistem MusenTix
 > sesuai dengan kebutuhan operasional museum kami, dan saya menyetujui
 > penggunaan sistem ini untuk museum yang saya wakili, dengan catatan temuan
 > yang tercantum pada bagian 5."

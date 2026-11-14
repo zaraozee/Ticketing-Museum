@@ -32,11 +32,11 @@ afterEach(function (): void {
  */
 function runBackup(string $directory, array $options = []): string
 {
-    $before = File::glob($directory.DIRECTORY_SEPARATOR.'jejak-*.json');
+    $before = File::glob($directory.DIRECTORY_SEPARATOR.'musentix-*.json');
 
     test()->artisan('db:backup', ['--path' => $directory] + $options)->assertSuccessful();
 
-    $created = array_values(array_diff(File::glob($directory.DIRECTORY_SEPARATOR.'jejak-*.json'), $before));
+    $created = array_values(array_diff(File::glob($directory.DIRECTORY_SEPARATOR.'musentix-*.json'), $before));
 
     expect($created)->toHaveCount(1);
 
@@ -112,7 +112,7 @@ test('restoring a missing file fails loudly instead of silently doing nothing', 
 
 test('a backup file without a tables section is rejected', function (): void {
     $path = $this->directory.DIRECTORY_SEPARATOR.'rusak.json';
-    File::put($path, json_encode(['app' => 'Jejak'], JSON_THROW_ON_ERROR));
+    File::put($path, json_encode(['app' => 'MusenTix'], JSON_THROW_ON_ERROR));
 
     $this->artisan('db:restore', ['file' => $path, '--force' => true])
         ->expectsOutputToContain('tables')

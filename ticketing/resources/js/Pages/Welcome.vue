@@ -46,7 +46,7 @@ import SeoHead from '../Components/SeoHead.vue';
         <!-- Feature Highlight Section -->
         <section class="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
             <div class="mb-12 text-center">
-                <h2 class="text-2xl font-bold text-slate-900 sm:text-3xl">Kenapa Memilih Jejak?</h2>
+                <h2 class="text-2xl font-bold text-slate-900 sm:text-3xl">Kenapa Memilih MusenTix?</h2>
                 <p class="mt-2 text-slate-600">Teknologi modern untuk kenyamanan pengunjung dan efisiensi pengelola museum.</p>
             </div>
 

@@ -74,7 +74,7 @@ const seoDescription = computed<string>(() => {
     const source = props.museum.description?.replace(/\s+/g, ' ').trim();
 
     if (!source) {
-        return `Kunjungi ${props.museum.name}${props.museum.city ? ` di ${props.museum.city}` : ''}. Cek jadwal, harga tiket, dan pesan tiket online di Jejak.`;
+        return `Kunjungi ${props.museum.name}${props.museum.city ? ` di ${props.museum.city}` : ''}. Cek jadwal, harga tiket, dan pesan tiket online di MusenTix.`;
     }
 
     return source.length > 155 ? `${source.slice(0, 152).trimEnd()}…` : source;

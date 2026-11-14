@@ -1,4 +1,4 @@
-# Checklist Go-Live — Jejak
+# Checklist Go-Live — MusenTix
 
 Daftar periksa terakhir sebelum aplikasi dipakai museum pilot. Setiap baris
 harus dapat ditunjukkan buktinya; baris yang belum dapat dibuktikan **bukan**

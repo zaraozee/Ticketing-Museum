@@ -73,11 +73,11 @@ class VerifyRestoreCommand extends Command
 
         // Hanya berkas dari drill ini yang boleh dipertimbangkan: direktori
         // mungkin masih menyimpan backup dari eksekusi sebelumnya.
-        $before = File::glob($directory.DIRECTORY_SEPARATOR.'jejak-*.json');
+        $before = File::glob($directory.DIRECTORY_SEPARATOR.'musentix-*.json');
 
         $this->call('db:backup', ['--path' => $directory]);
 
-        $created = array_values(array_diff(File::glob($directory.DIRECTORY_SEPARATOR.'jejak-*.json'), $before));
+        $created = array_values(array_diff(File::glob($directory.DIRECTORY_SEPARATOR.'musentix-*.json'), $before));
         sort($created);
         $backup = $created === [] ? false : end($created);
 

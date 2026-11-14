@@ -26,7 +26,7 @@ export interface OfflineTicket {
     cached_at: string;
 }
 
-const DB_NAME = 'jejak-tickets';
+const DB_NAME = 'musentix-tickets';
 const DB_VERSION = 1;
 const STORE = 'tickets';
 

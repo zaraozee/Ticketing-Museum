@@ -28,7 +28,7 @@ declare const self: ServiceWorkerGlobalScope & {
     __WB_MANIFEST: Array<PrecacheEntry | string>;
 };
 
-const OFFLINE_CACHE = 'jejak-offline-v1';
+const OFFLINE_CACHE = 'musentix-offline-v1';
 const OFFLINE_URL = '/offline';
 const OFFLINE_TICKETS_URL = '/offline/tickets';
 
@@ -138,7 +138,7 @@ registerRoute(({ request, url }) => request.method === 'GET' && isNetworkOnly(ur
 registerRoute(
     ({ url, request }) => request.destination === 'image' && !url.pathname.startsWith('/icons/'),
     new CacheFirst({
-        cacheName: 'jejak-museum-images-v1',
+        cacheName: 'musentix-museum-images-v1',
         plugins: [
             new ExpirationPlugin({
                 maxEntries: 80,
@@ -153,7 +153,7 @@ registerRoute(
 //    Hanya permintaan navigasi (dokumen HTML penuh) yang di-cache; respons
 //    Inertia (XHR dengan header X-Inertia) tidak pernah disimpan.
 const publicPageStrategy = new StaleWhileRevalidate({
-    cacheName: 'jejak-public-pages-v1',
+    cacheName: 'musentix-public-pages-v1',
     plugins: [
         new ExpirationPlugin({
             maxEntries: 30,
@@ -220,7 +220,7 @@ self.addEventListener('activate', (event: ExtendableEvent) => {
         (async () => {
             for (const key of await caches.keys()) {
                 // Jangan hapus cache runtime yang dikelola Workbox.
-                if (key.startsWith('workbox-precache') || key.startsWith('jejak-')) {
+                if (key.startsWith('workbox-precache') || key.startsWith('musentix-')) {
                     continue;
                 }
 

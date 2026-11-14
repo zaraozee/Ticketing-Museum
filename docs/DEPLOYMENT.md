@@ -1,4 +1,4 @@
-# Deployment Jejak ke VPS
+# Deployment MusenTix ke VPS
 
 Panduan pemasangan produksi dari server kosong. Untuk operasi sehari-hari
 (monitoring, backup, prosedur gangguan) lihat `RUNBOOK.md`.

@@ -16,7 +16,7 @@ class AdminUserSeeder extends Seeder
     public function run(): void
     {
         $admin = User::firstOrCreate(
-            ['email' => 'admin@jejak.test'],
+            ['email' => 'admin@musentix.test'],
             [
                 'uuid' => (string) Str::ulid(),
                 'name' => 'Super Admin',

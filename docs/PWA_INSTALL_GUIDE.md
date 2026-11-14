@@ -1,6 +1,6 @@
-# Panduan Pemasangan PWA Jejak
+# Panduan Pemasangan PWA MusenTix
 
-Dokumen ini menjelaskan cara memasang aplikasi Jejak sebagai PWA (Progressive
+Dokumen ini menjelaskan cara memasang aplikasi MusenTix sebagai PWA (Progressive
 Web App) di perangkat pengguna, cara memverifikasi bahwa pemasangan berhasil,
 dan cara menguji ulang kriteria penerimaan Fase 8.
 
@@ -31,7 +31,7 @@ php artisan pwa:icons --force
 1. Buka aplikasi di Chrome.
 2. Ketuk tombol **"Pasang Aplikasi"** yang muncul pada banner ajakan, **atau**
    menu ⋮ → **"Instal aplikasi"** / **"Tambahkan ke Layar utama"**.
-3. Konfirmasi. Ikon Jejak muncul di launcher dan aplikasi terbuka dalam mode
+3. Konfirmasi. Ikon MusenTix muncul di launcher dan aplikasi terbuka dalam mode
    `standalone` (tanpa address bar).
 4. Bila banner ajakan tidak muncul, pastikan service worker aktif:
    DevTools → **Application** → **Service workers** harus menampilkan status
@@ -48,7 +48,7 @@ Aplikasi menampilkan petunjuk ini otomatis pada perangkat iOS.
 1. Buka aplikasi di **Safari** (bukan Chrome/Firefox di iOS).
 2. Ketuk tombol **Bagikan** (kotak dengan panah ke atas).
 3. Pilih **"Tambahkan ke Layar Utama"**.
-4. Ketuk **"Tambah"**. Ikon Jejak muncul di layar utama.
+4. Ketuk **"Tambah"**. Ikon MusenTix muncul di layar utama.
 
 Catatan iOS: e-ticket offline tetap berfungsi di dalam Safari, tetapi Web Push
 belum tersedia di MVP (lihat `SYSTEM_DESIGN.md` §15.4).
@@ -100,8 +100,8 @@ pembaruan akan ditawarkan lagi pada kunjungan berikutnya.
 |---|---|
 | Application → Manifest | Nama, ikon 192/512, `display: standalone`, tanpa error |
 | Application → Service workers | `/sw.js` aktif, scope `/`, status *activated* |
-| Application → Cache Storage | `jejak-public-pages-v1`, `jejak-museum-images-v1`, cache precache Workbox |
-| Application → IndexedDB | Database `jejak-tickets`, object store `tickets` berisi snapshot tiket |
+| Application → Cache Storage | `musentix-public-pages-v1`, `musentix-museum-images-v1`, cache precache Workbox |
+| Application → IndexedDB | Database `musentix-tickets`, object store `tickets` berisi snapshot tiket |
 | Lighthouse → PWA | Semua audit berskor 1 (installable, maskable icon, splash, themed omnibox, viewport) |
 
 ### 7.2 Uji offline yang benar

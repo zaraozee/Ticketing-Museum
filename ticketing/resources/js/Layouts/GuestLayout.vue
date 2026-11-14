@@ -4,7 +4,7 @@ import { computed } from 'vue';
 import type { SharedProps } from '../types';
 
 const page = usePage<SharedProps>();
-const appName = computed(() => page.props.appName || 'Jejak');
+const appName = computed(() => page.props.appName || 'MusenTix');
 const flash = computed(() => page.props.flash ?? {});
 </script>
 

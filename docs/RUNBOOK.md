@@ -1,6 +1,6 @@
-# Runbook Operasional Jejak
+# Runbook Operasional MusenTix
 
-Panduan operasional untuk menjalankan, memantau, dan memulihkan aplikasi Jejak di
+Panduan operasional untuk menjalankan, memantau, dan memulihkan aplikasi MusenTix di
 produksi. Dokumen ini melengkapi `SYSTEM_DESIGN.md` §8.5 (logging, monitoring,
 backup) dan `ROADMAP.md` Fase 9.
 

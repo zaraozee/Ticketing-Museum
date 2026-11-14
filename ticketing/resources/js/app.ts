@@ -7,7 +7,7 @@ import { registerServiceWorker, setupInstallPrompt } from './pwa';
 registerServiceWorker();
 setupInstallPrompt();
 
-const appName = window.document.getElementsByTagName('title')[0]?.innerText || 'Jejak';
+const appName = window.document.getElementsByTagName('title')[0]?.innerText || 'MusenTix';
 
 type PageModule = { default: DefineComponent };
 

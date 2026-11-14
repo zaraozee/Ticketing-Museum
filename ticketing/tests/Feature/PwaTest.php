@@ -16,7 +16,7 @@ use App\Models\Museum;
 */
 
 test('the web app manifest is served with installability fields', function (): void {
-    config(['app.name' => 'Jejak Uji']);
+    config(['app.name' => 'MusenTix Uji']);
 
     $response = $this->get('/manifest.webmanifest');
 
@@ -25,8 +25,8 @@ test('the web app manifest is served with installability fields', function (): v
 
     $manifest = $response->json();
 
-    expect($manifest['name'])->toContain('Jejak Uji')
-        ->and($manifest['short_name'])->toBe('Jejak Uji')
+    expect($manifest['name'])->toContain('MusenTix Uji')
+        ->and($manifest['short_name'])->toBe('MusenTix Uji')
         ->and($manifest['start_url'])->toBe('/')
         ->and($manifest['scope'])->toBe('/')
         ->and($manifest['display'])->toBe('standalone')

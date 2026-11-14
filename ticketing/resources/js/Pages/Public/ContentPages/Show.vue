@@ -17,7 +17,7 @@ const seoDescription = computed<string>(() => {
     const source = props.page.content?.replace(/\s+/g, ' ').trim();
 
     if (!source) {
-        return `${props.page.title} — informasi resmi Jejak, platform pemesanan tiket museum online.`;
+        return `${props.page.title} — informasi resmi MusenTix, platform pemesanan tiket museum online.`;
     }
 
     return source.length > 155 ? `${source.slice(0, 152).trimEnd()}…` : source;
