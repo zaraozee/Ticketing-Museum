@@ -118,6 +118,7 @@ Penanggung jawab museum: _diisi_
 | 6.7 | Tiket hasil pembayaran uji dapat dipindai di gate | riwayat scan | ☐ |
 | 6.8 | Refund transaksi uji diproses | status `refunded`, tiket `voided` | ☐ |
 | 6.9 | `payments:reconcile` berjalan tanpa error di produksi | log terjadwal | ☐ |
+| 6.10 | Masa tenggang `--grace-hours` sesuai kebijakan museum (default 2 jam) | `php artisan payments:reconcile --grace-hours=2` di cron | ☐ |
 
 > **Catatan AC-4.** Butir 6.6–6.8 memerlukan akun Midtrans produksi nyata dan
 > tidak dapat dibuktikan di lingkungan pengembangan. Lihat

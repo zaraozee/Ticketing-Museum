@@ -195,6 +195,20 @@ berulang, periksa memori server.
    periksa `payment_events` — notifikasi mungkin ditolak karena signature.
 4. Bila `needs_review = true`, tangani lewat antrean anomali admin.
 
+> **Payment yang ditutup karena booking berakhir.** Saat booking
+> `expired`/`cancelled`, percobaan pembayaran yang masih aktif ikut ditutup
+> (`expired`/`cancelled`) supaya `ops:health` tidak melaporkan pembayaran
+> menggantung selamanya. Karena itu `payments:reconcile` **juga** memeriksa
+> payment berstatus `expired`/`cancelled` selama masa tenggang
+> `--grace-hours` (default 2 jam, hanya untuk booking yang berakhir).
+> Tanpa masa tenggang itu, pembayaran telat (BR-23) yang notifikasinya juga
+> hilang tidak akan pernah pulih: uang masuk, tiket tidak terbit, dan tidak
+> ada yang menanganinya.
+>
+> ```bash
+> php artisan payments:reconcile --grace-hours=6
+> ```
+
 ### 5.4 Webhook tertunda
 
 ```bash

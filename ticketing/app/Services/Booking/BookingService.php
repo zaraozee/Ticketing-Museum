@@ -4,6 +4,7 @@ namespace App\Services\Booking;
 
 use App\Enums\BookingStatus;
 use App\Enums\MuseumStatus;
+use App\Enums\PaymentStatus;
 use App\Exceptions\InsufficientQuotaException;
 use App\Models\AppSetting;
 use App\Models\Booking;
@@ -172,6 +173,8 @@ class BookingService
                 }
             }
 
+            $this->closeActivePayments($booking, PaymentStatus::CANCELLED);
+
             ActivityLogger::log('booking.cancelled', $booking, [
                 'quantity' => $quantity,
             ], $actor?->id);
@@ -220,6 +223,8 @@ class BookingService
                 }
             }
 
+            $this->closeActivePayments($booking, PaymentStatus::EXPIRED);
+
             ActivityLogger::log('booking.expired', $booking, ['quantity' => $quantity]);
 
             $booking->refresh();
@@ -249,6 +254,29 @@ class BookingService
         }
 
         $this->expiredNotifications = [];
+    }
+
+    /**
+     * Tutup percobaan pembayaran yang masih aktif milik booking.
+     *
+     * Tanpa ini payment tertinggal `pending` selamanya setelah booking-nya
+     * berakhir: antrean anomali admin terisi pembayaran yang sudah tidak
+     * mungkin dibayar, dan `ops:health` melaporkan "pembayaran menggantung"
+     * secara permanen sehingga alarm AC-5 kehilangan maknanya.
+     *
+     * Hanya status aktif yang disentuh. `paid` sengaja dibiarkan: pembayaran
+     * yang masuk setelah booking berakhir ditangani BR-23 (antrean anomali),
+     * bukan ditutup diam-diam.
+     */
+    private function closeActivePayments(Booking $booking, PaymentStatus $target): void
+    {
+        DB::table('payments')
+            ->where('booking_id', $booking->id)
+            ->whereIn('status', [PaymentStatus::CREATED->value, PaymentStatus::PENDING->value])
+            ->update([
+                'status' => $target->value,
+                'updated_at' => now(),
+            ]);
     }
 
     /**

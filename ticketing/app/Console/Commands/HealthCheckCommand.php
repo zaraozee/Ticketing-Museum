@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
 use App\Models\Payment;
 use Illuminate\Console\Command;
@@ -141,6 +142,11 @@ class HealthCheckCommand extends Command
      * Pembayaran `pending` yang jauh melewati batas waktunya menandakan
      * webhook dan rekonsiliasi sama-sama gagal (BR-12).
      *
+     * Booking yang sudah berakhir (`expired`/`cancelled`) sengaja dikecualikan:
+     * pembayarannya tidak akan pernah dilunasi lewat jalur normal, sehingga
+     * menghitungnya akan membunyikan alarm ini terus-menerus. Pembayaran telat
+     * yang tetap masuk ditangani `payments:reconcile` (BR-23), bukan alarm ini.
+     *
      * @return array{name: string, status: string, message: string}
      */
     private function stuckPayments(): array
@@ -150,6 +156,8 @@ class HealthCheckCommand extends Command
         $count = Payment::query()
             ->where('status', PaymentStatus::PENDING->value)
             ->where('created_at', '<=', now()->subMinutes($minutes))
+            ->whereHas('booking', fn ($booking) => $booking
+                ->whereNotIn('status', [BookingStatus::EXPIRED->value, BookingStatus::CANCELLED->value]))
             ->count();
 
         return $count > 0

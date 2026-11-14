@@ -252,7 +252,7 @@ Gate kualitas akhir Fase 8: Pint bersih, PHPStan 0 error, **Pest 203 tes / 787 a
 
 ### Status Fase 9
 
-Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 249 tes / 979 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses, `composer audit` tanpa advisory, `npm audit --omit=dev` 0 kerentanan.
+Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 269 tes / 1039 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses, `composer audit` tanpa advisory, `npm audit --omit=dev` 0 kerentanan.
 
 #### Bukti acceptance criteria
 
@@ -265,8 +265,26 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 249 tes / 979 a
 | (5) Alarm antrean/webhook terbukti aktif | ⚠️ **Sebagian** | `ops:health` + 6 tes membuktikan alarm berbunyi (exit ≠ 0) dan terjadwal tiap 5 menit; bukti notifikasi pada target monitoring nyata belum ada |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
 
-#### Pemetaan 13 skenario kunci §19
+#### Bug yang ditemukan lewat uji bayar sungguhan (14 Nov 2026)
 
+Uji pembayaran nyata di sandbox Midtrans (popup Snap di browser) mengungkap tiga
+bug yang tidak tertangkap suite otomatis. Ketiganya sudah diperbaiki dan
+masing-masing punya tes regresi.
+
+| # | Bug | Dampak | Perbaikan |
+|---|---|---|---|
+| 1 | Booking `expired`/`cancelled` tidak menutup `payments` yang masih `pending` | `ops:health` melaporkan "pembayaran menggantung" **selamanya** → alarm AC-5 berbunyi palsu terus-menerus dan kehilangan makna | `BookingService::closeActivePayments()` dipanggil dari `cancel()` dan `expire()` |
+| 2 | Setelah bug 1 diperbaiki, payment yang ditutup keluar dari jangkauan `payments:reconcile` | Pembayaran telat (BR-23) yang notifikasinya juga hilang **tidak akan pernah pulih**: uang masuk, tiket tidak terbit, tanpa penanganan | `payments:reconcile --grace-hours` (default 2 jam) ikut memeriksa payment `expired`/`cancelled` milik booking yang berakhir |
+| 3 | `payments:reconcile` tidak diuji dengan klien yang `isLive()` | Perintah melewati seluruh pemeriksaan bila gateway tidak dikonfigurasi; tes lama tidak pernah menyentuh jalur ini | Helper `useLiveReconcileClient()` + 2 tes rekonsiliasi baru |
+| 4 | Jendela tenggang dihitung dari `payments.updated_at` | Setiap pemeriksaan menulis `last_response` sehingga `updated_at` bergeser dan payment diperiksa ke gateway **tanpa batas** — kuota API Midtrans terkuras | Jendela dihitung dari `bookings.expired_at`/`cancelled_at` |
+| 5 | `ops:health` menghitung payment `pending` milik booking yang sudah berakhir | Alarm "pembayaran menggantung" berbunyi terus-menerus walau tidak ada yang bisa ditindaklanjuti | Pemeriksaan mengecualikan booking `expired`/`cancelled`; penanganannya lewat `payments:reconcile` (BR-23) |
+
+Catatan penting: bug 2 adalah **regresi yang diperkenalkan oleh perbaikan bug
+1** dan tertangkap karena jalur pemulihan diuji ulang setelah perubahan —
+bukan karena tes lama gagal. Ini menegaskan bahwa perbaikan pada alur uang
+wajib disertai uji jalur pemulihannya, bukan hanya jalur normalnya.
+
+#### Pemetaan 13 skenario kunci §19
 | # | Skenario | Bukti otomatis |
 |---|---|---|
 | 1 | Dua pengguna memesan kuota terakhir bersamaan | `QuotaConcurrencyTest` → "parallel workers competing for the last seats never oversell" (proses paralel nyata, commit sungguhan) |

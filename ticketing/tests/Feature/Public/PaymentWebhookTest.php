@@ -94,6 +94,42 @@ function webhookPayload(Payment $payment, array $overrides = []): array
     ], $overrides);
 }
 
+/**
+ * Ganti klien gateway dengan versi yang mengaku `live` tetapi tetap memakai
+ * `FakeMidtransClient`.
+ *
+ * `payments:reconcile` melewati seluruh pemeriksaan bila gateway tidak
+ * terkonfigurasi, sedangkan fake selalu `isLive() === false`. Tanpa pembungkus
+ * ini, perintah tidak pernah benar-benar diuji.
+ */
+function useLiveReconcileClient(FakeMidtransClient $fake): void
+{
+    app()->instance(MidtransClient::class, new class($fake) implements MidtransClient
+    {
+        public function __construct(private FakeMidtransClient $fake) {}
+
+        public function createSnapTransaction(array $payload): array
+        {
+            return $this->fake->createSnapTransaction($payload);
+        }
+
+        public function fetchTransactionStatus(string $orderId): array
+        {
+            return $this->fake->fetchTransactionStatus($orderId);
+        }
+
+        public function verifySignature(array $payload): bool
+        {
+            return $this->fake->verifySignature($payload);
+        }
+
+        public function isLive(): bool
+        {
+            return true;
+        }
+    });
+}
+
 test('starting a payment creates one attempt and asks the gateway for a snap token', function (): void {
     $response = $this->actingAs($this->user)
         ->post(route('bookings.pay', $this->booking->uuid));
@@ -402,6 +438,36 @@ test('AC-7 / BR-23: a late payment without available quota goes to the anomaly q
         ->and(Ticket::query()->count())->toBe(0);
 });
 
+test('AC-7 / BR-23: a late payment still confirms when expiry already closed the payment', function (): void {
+    // Urutan yang sebenarnya terjadi di produksi: `bookings:expire` menutup
+    // booking DAN payment-nya, baru kemudian notifikasi pembayaran telat tiba.
+    // Penutupan payment tidak boleh menghalangi konfirmasi — uangnya nyata.
+    $this->booking->update([
+        'status' => BookingStatus::PENDING_PAYMENT,
+        'expires_at' => now()->subMinutes(5),
+    ]);
+    $this->slot->update(['reserved_count' => 2]);
+
+    $payment = Payment::factory()->forBooking($this->booking)->create([
+        'status' => PaymentStatus::PENDING,
+    ]);
+
+    $this->artisan('bookings:expire')->assertSuccessful();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::EXPIRED)
+        ->and($this->booking->fresh()->status)->toBe(BookingStatus::EXPIRED);
+
+    // Kuota sudah dilepas oleh expire; sekarang bisa ditahan ulang.
+    $this->fake->forceStatus($payment->provider_order_id, webhookPayload($payment));
+
+    $this->postJson(route('webhooks.midtrans'), webhookPayload($payment))->assertOk();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::PAID)
+        ->and($payment->fresh()->needs_review)->toBeFalse()
+        ->and($this->booking->fresh()->status)->toBe(BookingStatus::CONFIRMED)
+        ->and(Ticket::query()->count())->toBe(2);
+});
+
 test('a refund voids unused tickets and marks the booking refunded', function (): void {
     $this->actingAs($this->user)->post(route('bookings.pay', $this->booking->uuid));
     $payment = Payment::query()->firstOrFail();
@@ -508,33 +574,67 @@ test('the reconcile command confirms a payment whose webhook never arrived', fun
 
     // Rekonsiliasi hanya berjalan bila gateway dianggap live; fake tidak live,
     // jadi perintah memakai klien asli lewat instance yang sama.
-    $this->app->instance(MidtransClient::class, new class($this->fake) implements MidtransClient
-    {
-        public function __construct(private FakeMidtransClient $fake) {}
-
-        public function createSnapTransaction(array $payload): array
-        {
-            return $this->fake->createSnapTransaction($payload);
-        }
-
-        public function fetchTransactionStatus(string $orderId): array
-        {
-            return $this->fake->fetchTransactionStatus($orderId);
-        }
-
-        public function verifySignature(array $payload): bool
-        {
-            return $this->fake->verifySignature($payload);
-        }
-
-        public function isLive(): bool
-        {
-            return true;
-        }
-    });
+    useLiveReconcileClient($this->fake);
 
     $this->artisan('payments:reconcile', ['--minutes' => 1])->assertSuccessful();
 
     expect($payment->fresh()->status)->toBe(PaymentStatus::PAID)
         ->and($this->booking->fresh()->status)->toBe(BookingStatus::CONFIRMED);
+});
+
+test('the reconcile command recovers a late payment that expiry already closed', function (): void {
+    // Skenario gabungan yang paling berbahaya: notifikasi hilang DAN booking
+    // sudah kedaluwarsa. `bookings:expire` menutup payment menjadi `expired`,
+    // sehingga tanpa masa tenggang payment itu tidak pernah diperiksa lagi —
+    // uang masuk, tiket tidak terbit, dan tidak ada yang menanganinya.
+    $this->booking->update([
+        'status' => BookingStatus::PENDING_PAYMENT,
+        'expires_at' => now()->subMinutes(30),
+    ]);
+    $this->slot->update(['reserved_count' => 2]);
+
+    $payment = Payment::factory()->forBooking($this->booking)->create([
+        'status' => PaymentStatus::PENDING,
+        'created_at' => now()->subMinutes(40),
+    ]);
+
+    $this->artisan('bookings:expire')->assertSuccessful();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::EXPIRED)
+        ->and($this->booking->fresh()->status)->toBe(BookingStatus::EXPIRED);
+
+    $this->fake->forceStatus($payment->provider_order_id, webhookPayload($payment));
+    useLiveReconcileClient($this->fake);
+
+    $this->artisan('payments:reconcile', ['--minutes' => 1])->assertSuccessful();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::PAID)
+        ->and($this->booking->fresh()->status)->toBe(BookingStatus::CONFIRMED)
+        ->and(Ticket::query()->count())->toBe(2);
+});
+
+test('the reconcile command stops checking a closed payment after the grace period', function (): void {
+    // Masa tenggang harus berakhir, kalau tidak setiap payment lama akan
+    // dipanggil ke gateway selamanya dan menghabiskan kuota API.
+    //
+    // Jendela dihitung dari `expired_at` booking, bukan `updated_at` payment:
+    // setiap pemeriksaan menulis `last_response` sehingga `updated_at` bergeser
+    // dan payment akan terus diperiksa tanpa batas.
+    $this->booking->update([
+        'status' => BookingStatus::EXPIRED,
+        'expired_at' => now()->subHours(5),
+    ]);
+
+    $payment = Payment::factory()->forBooking($this->booking)->create([
+        'status' => PaymentStatus::EXPIRED,
+        // Baru saja disentuh: tanpa perbaikan, payment ini lolos dari saringan.
+        'updated_at' => now(),
+    ]);
+
+    $this->fake->forceStatus($payment->provider_order_id, webhookPayload($payment));
+    useLiveReconcileClient($this->fake);
+
+    $this->artisan('payments:reconcile', ['--minutes' => 1, '--grace-hours' => 2])->assertSuccessful();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::EXPIRED);
 });

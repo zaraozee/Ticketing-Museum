@@ -1,12 +1,14 @@
 <?php
 
 use App\Enums\BookingStatus;
+use App\Enums\PaymentStatus;
 use App\Models\AppSetting;
 use App\Models\Booking;
 use App\Models\BookingItem;
 use App\Models\Museum;
 use App\Models\MuseumCategory;
 use App\Models\OrganizerProfile;
+use App\Models\Payment;
 use App\Models\TicketType;
 use App\Models\User;
 use App\Models\VisitSlot;
@@ -185,6 +187,26 @@ test('cancelling a pending booking releases its quota (FR-BKG-07)', function ():
         ->and($this->slot->fresh()->remaining())->toBe(10);
 });
 
+test('cancelling a pending booking also cancels its active payment', function (): void {
+    // Payment yang tertinggal `pending` setelah booking dibatalkan tidak akan
+    // pernah dibayar, tetapi tetap dihitung `ops:health` sebagai pembayaran
+    // menggantung — alarm AC-5 berbunyi palsu terus-menerus.
+    $this->actingAs($this->user)
+        ->post(route('bookings.store', $this->museum), bookingPayload($this->slot, $this->ticketType, 1));
+
+    $booking = Booking::query()->firstOrFail();
+
+    $payment = Payment::factory()->for($booking)->create([
+        'status' => PaymentStatus::PENDING,
+    ]);
+
+    $this->actingAs($this->user)
+        ->post(route('bookings.cancel', $booking->uuid))
+        ->assertRedirect(route('bookings.show', $booking->uuid));
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::CANCELLED);
+});
+
 test('a confirmed booking cannot be cancelled by the visitor', function (): void {
     $booking = Booking::factory()->confirmed()->forSlot($this->slot)->forUser($this->user)->create();
     $this->slot->update(['sold_count' => 2, 'reserved_count' => 0]);
@@ -192,7 +214,6 @@ test('a confirmed booking cannot be cancelled by the visitor', function (): void
     $this->actingAs($this->user)
         ->post(route('bookings.cancel', $booking->uuid))
         ->assertSessionHas('error');
-
     expect($booking->fresh()->status)->toBe(BookingStatus::CONFIRMED)
         ->and($this->slot->fresh()->sold_count)->toBe(2);
 });
@@ -245,6 +266,40 @@ test('the expire command is idempotent and does not release quota twice', functi
     $this->artisan('bookings:expire')->assertSuccessful();
 
     expect($this->slot->fresh()->reserved_count)->toBe(0);
+});
+
+test('the expire command also expires the pending payment', function (): void {
+    // Tanpa ini payment tetap `pending` selamanya setelah booking kedaluwarsa:
+    // antrean anomali admin terisi pembayaran yang tidak mungkin dibayar, dan
+    // `ops:health` melaporkan "pembayaran menggantung" terus-menerus sehingga
+    // alarm AC-5 kehilangan maknanya.
+    $booking = Booking::factory()->forSlot($this->slot)->forUser($this->user)->overdue()->create();
+    BookingItem::factory()->forBooking($booking)->quantity(1)->create();
+    $this->slot->update(['reserved_count' => 1]);
+
+    $payment = Payment::factory()->for($booking)->create([
+        'status' => PaymentStatus::PENDING,
+    ]);
+
+    $this->artisan('bookings:expire')->assertSuccessful();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::EXPIRED);
+});
+
+test('the expire command leaves a paid payment untouched', function (): void {
+    // Pembayaran yang sudah lunas tidak boleh diturunkan menjadi `expired`:
+    // uangnya sudah masuk, dan BR-23 mengatur kasus ini secara terpisah.
+    $booking = Booking::factory()->forSlot($this->slot)->forUser($this->user)->overdue()->create();
+    BookingItem::factory()->forBooking($booking)->quantity(1)->create();
+    $this->slot->update(['reserved_count' => 1]);
+
+    $payment = Payment::factory()->for($booking)->create([
+        'status' => PaymentStatus::PAID,
+    ]);
+
+    $this->artisan('bookings:expire')->assertSuccessful();
+
+    expect($payment->fresh()->status)->toBe(PaymentStatus::PAID);
 });
 
 test('the expire command ignores bookings that are still within the window', function (): void {

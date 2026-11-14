@@ -1,6 +1,8 @@
 <?php
 
+use App\Enums\BookingStatus;
 use App\Enums\PaymentStatus;
+use App\Models\Booking;
 use App\Models\Payment;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\Request;
@@ -69,4 +71,38 @@ it('tetap menyelesaikan pemeriksaan walau ping gagal terkirim', function () {
     Http::fake(fn () => throw new ConnectionException('tidak terjangkau'));
 
     $this->artisan('ops:health')->assertSuccessful();
+});
+
+it('tidak menghitung pembayaran milik booking yang sudah berakhir', function () {
+    Http::fake();
+
+    // Payment `pending` pada booking `expired`/`cancelled` tidak akan pernah
+    // dilunasi lewat jalur normal. Menghitungnya membuat alarm ini berbunyi
+    // terus-menerus sehingga kehilangan makna sebagai alarm.
+    $booking = Booking::factory()->create([
+        'status' => BookingStatus::EXPIRED,
+        'expired_at' => now(),
+    ]);
+
+    Payment::factory()->for($booking)->create([
+        'status' => PaymentStatus::PENDING,
+        'created_at' => now()->subHours(2),
+    ]);
+
+    $this->artisan('ops:health')->assertSuccessful();
+});
+
+it('tetap menghitung pembayaran menggantung pada booking yang masih berjalan', function () {
+    Http::fake();
+
+    // Kebalikan dari tes di atas: alarm harus tetap berbunyi untuk kasus yang
+    // memang menjadi sasarannya.
+    $booking = Booking::factory()->create(['status' => BookingStatus::PENDING_PAYMENT]);
+
+    Payment::factory()->for($booking)->create([
+        'status' => PaymentStatus::PENDING,
+        'created_at' => now()->subHours(2),
+    ]);
+
+    $this->artisan('ops:health')->assertFailed();
 });
