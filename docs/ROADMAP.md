@@ -261,7 +261,7 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 269 tes / 1039 
 | (1) 13 skenario kunci §19 lulus | ✅ | Tabel pemetaan di bawah — 13/13 punya tes otomatis |
 | (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
 | (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` → "Backup dan restore terverifikasi: data identik sebelum dan sesudah."; 9 tes di `BackupRestoreTest` |
-| (4) Pembayaran produksi bernilai kecil end-to-end | ⛔ **Terblokir** | Butuh akun Midtrans produksi nyata — lihat tabel item terblokir |
+| (4) Pembayaran produksi bernilai kecil end-to-end | ⛔ **Terblokir** | Butuh akun Midtrans produksi nyata — lihat tabel item terblokir. Yang **sudah** terbukti di sandbox: bayar nyata lewat popup Snap → booking `confirmed` → 2 tiket terbit; verifikasi signature menerima tanda tangan asli Midtrans lewat URL tetap (200 `applied`, lalu `ignored_duplicate`); scan gate menolak dengan `not_yet_valid` sesuai jadwal |
 | (5) Alarm antrean/webhook terbukti aktif | ⚠️ **Sebagian** | `ops:health` + 6 tes membuktikan alarm berbunyi (exit ≠ 0) dan terjadwal tiap 5 menit; bukti notifikasi pada target monitoring nyata belum ada |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
 

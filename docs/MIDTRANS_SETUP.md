@@ -290,3 +290,38 @@ Jalur pemulihan bekerja sesuai `RUNBOOK_PAYMENT_ANOMALY.md` §5: transaksi yang
 lunas tetap dikonfirmasi lewat `payments:reconcile` meski notifikasi hilang.
 Ini **bukan** pengganti webhook — jeda rekonsiliasi berarti pengunjung menunggu
 sebelum tiketnya terbit.
+
+### 10.2 URL tetap dan verifikasi signature dengan data asli Midtrans
+
+Tunnel `localtunnel` dengan subdomain tetap dipakai agar URL notifikasi tidak
+berubah setiap restart:
+
+```bash
+lt --port 8000 --subdomain musentix
+# → https://musentix.loca.lt
+```
+
+`loca.lt` menampilkan halaman peringatan untuk permintaan **browser**, tetapi
+**tidak** untuk permintaan server-to-server: POST dari luar tanpa header
+khusus tetap sampai ke aplikasi. Ini sudah diuji dengan `User-Agent` mirip
+Midtrans dan tanpa header `bypass-tunnel-reminder`.
+
+Untuk membuktikan verifikasi signature bekerja pada tanda tangan yang
+**benar-benar dibuat Midtrans** (bukan buatan skrip uji), payload notifikasi
+disusun dari respons `GET /v2/{order_id}/status` — termasuk `signature_key`
+asli — lalu dikirim ke URL tetap:
+
+| Uji | Hasil |
+|---|---|
+| POST pertama (signature asli Midtrans) | **HTTP 200** `{"message":"OK","result":"applied"}` |
+| POST kedua, payload identik | **HTTP 200** `{"message":"OK","result":"ignored_duplicate"}` |
+| Jumlah tiket booking `MUS-NM2CQT` | tetap **2** (tidak tergandakan) |
+
+Artinya rantai verifikasi signature → pengambilan status → penerapan status →
+idempotensi terbukti benar terhadap tanda tangan produksi Midtrans, bukan hanya
+terhadap payload buatan sendiri.
+
+Yang **tetap belum** terbukti: Midtrans mengirim notifikasi atas inisiatifnya
+sendiri ke URL yang terdaftar. Itu memerlukan URL notifikasi di dashboard
+menunjuk ke tunnel aktif — langkah manual yang harus diulang setiap tunnel
+dijalankan ulang, dan justru alasan AC-4 menuntut domain tetap.
