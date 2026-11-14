@@ -291,7 +291,43 @@ lunas tetap dikonfirmasi lewat `payments:reconcile` meski notifikasi hilang.
 Ini **bukan** pengganti webhook — jeda rekonsiliasi berarti pengunjung menunggu
 sebelum tiketnya terbit.
 
-### 10.2 URL tetap dan verifikasi signature dengan data asli Midtrans
+### 10.2 Notifikasi uji dari dashboard Midtrans (bukti pengiriman nyata)
+
+Tombol **Test notification URL** di **Settings → Payment → Payment notification
+URL** mengirim POST **sungguhan** dari server Midtrans ke endpoint aplikasi.
+Tombol ini bukan simulasi di sisi browser.
+
+Tiga kali tombol ditekan, tiga notifikasi masuk dan tercatat di
+`payment_events`:
+
+| # | `order_id` | Signature | Hasil | Waktu |
+|---|---|---|---|---|
+| 1 | `payment_notif_test_M473511615_f39ecdd4…` | **valid** | `unknown_order` | 09:33:41 |
+| 2 | `payment_notif_test_M473511615_e573ec1c…` | **valid** | `unknown_order` | 09:55:04 |
+| 3 | `payment_notif_test_M473511615_2b622c93…` | **valid** | `unknown_order` | 09:56:33 |
+
+Yang dibuktikan ketiganya:
+
+1. **Midtrans dapat menjangkau endpoint aplikasi** melewati tunnel.
+2. **URL notifikasi di dashboard sudah benar** dan tersimpan.
+3. **Verifikasi signature menerima tanda tangan asli Midtrans** — bukan hanya
+   tanda tangan yang disusun skrip uji.
+4. Order tak dikenal ditangani dengan **HTTP 200 `unknown_order`**, bukan 500:
+   gateway tidak akan mengirim ulang tanpa henti, dan kejadiannya tetap
+   tercatat.
+
+`unknown_order` adalah hasil yang **benar** untuk notifikasi uji ini: Midtrans
+memakai `order_id` karangan (`payment_notif_test_…`) yang tidak pernah ada di
+database. Yang diuji adalah jalur pengiriman dan verifikasi, bukan transaksi.
+
+> **Catatan penting.** Notifikasi uji ini **tidak** membuktikan notifikasi
+> transaksi nyata sampai. Untuk itu, transaksi `MUS-NM2CQT-1` harus dikirim
+> ulang lewat **Resend notification** pada detail transaksi, dan hasilnya harus
+> muncul di `payment_events` dengan `order_id: MUS-NM2CQT-1`. Karena transaksi
+> itu sudah lunas dan tiketnya terbit, jawabannya akan
+> `ignored_duplicate` — dan itu memang hasil yang diharapkan.
+
+### 10.3 URL tetap dan verifikasi signature dengan data asli Midtrans
 
 Tunnel `localtunnel` dengan subdomain tetap dipakai agar URL notifikasi tidak
 berubah setiap restart:
