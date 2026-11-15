@@ -200,7 +200,7 @@ tanpa memberi perlindungan berarti selama skrip masih inline. Lihat §6-R4.
 | `composer audit` bersih | ✅ | 0 advisory (lihat §4) |
 | `npm audit --omit=dev` | ✅ | 0 kerentanan |
 | Versi dipin lewat lockfile | ✅ | `composer.lock`, `package-lock.json` di repo |
-| Pemeriksaan di CI | ⚠️ | Belum ada pipeline CI; lihat §6-R5 |
+| Pemeriksaan di CI | ✅ | `.github/workflows/ci.yml` menjalankan Pint, PHPStan, dan Pest pada PostgreSQL 16 + Redis; run pertama hijau 15 Nov 2026 (run `43657872272`) |
 
 ---
 
@@ -264,7 +264,7 @@ tes regresi.
 | R2 | `SESSION_ENCRYPT=false` | Rendah | Sesi disimpan di Redis yang tidak terekspos; enkripsi menambah overhead tiap request | Redis hanya listen di localhost, tanpa akses publik; `SESSION_SECURE_COOKIE=true` |
 | R3 | Masking data pribadi belum menyeluruh | Sedang | Kebijakan masking per peran belum disepakati museum pilot | Akses sudah dibatasi policy; masking ditambahkan pada Fase 10 |
 | R4 | CSP penuh belum diterapkan | Sedang | `app.blade.php` memuat skrip inline; CSP ketat akan mematahkan aplikasi | CSP ketat untuk `api/*`; header lain aktif; nonce-based CSP direncanakan saat build Vite diubah |
-| R5 | Belum ada pipeline CI | Sedang | Repositori belum memiliki runner | Perintah `composer audit`, `npm audit`, Pint, PHPStan, Pest sudah siap dipasang di CI; lihat `GO_LIVE_CHECKLIST.md` §7 |
+| R5 | `composer audit`/`npm audit` belum dijalankan otomatis di CI | Rendah | Pipeline CI sudah aktif (Pint, PHPStan, Pest pada PostgreSQL 16 + Redis, hijau 15 Nov 2026), tetapi langkah audit dependensi belum ditambahkan ke workflow | Perintah audit sudah terdokumentasi; menambahkan langkahnya ke `ci.yml` tidak mengubah kode aplikasi. Sampai itu dilakukan, audit dijalankan manual sebelum rilis (lihat `GO_LIVE_CHECKLIST.md` §7) |
 | R6 | Backup terenkripsi di lapisan operasi | Rendah | Kunci enkripsi tidak boleh berada di server aplikasi | `pg_dump` + `age`/GPG sebelum keluar server; kunci disimpan terpisah |
 | R7 | Pembatasan Google Maps API di luar kode | Rendah | Dikonfigurasi di Google Cloud Console | Didokumentasikan di `DEPLOYMENT.md` |
 | R8 | `%` dan `_` pada pencarian museum diperlakukan sebagai wildcard LIKE | Rendah | Tidak membocorkan data privat: hanya memengaruhi hasil pencarian pada data yang memang publik, dan query tetap berparameter (bukan SQL injection) | Diterima untuk MVP; escaping wildcard direncanakan bersama pencarian lanjutan (Fase 10) |

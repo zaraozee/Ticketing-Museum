@@ -88,7 +88,7 @@ flowchart LR
 
 Keputusan yang diambil: D-26 (nama tabel/kolom), D-27 (tabel override terpisah), D-28 (generator idempoten) di `SYSTEM_DESIGN.md` §1.1b. Status `not_open` ditambahkan pada `AvailabilityStatus` agar tanggal yang belum digenerate tidak dilaporkan sebagai `closed`.
 
-**Verifikasi lintas driver.** Seluruh suite (137 tes) dijalankan hijau pada SQLite **dan** MySQL 8.4. Pada MySQL, `CHECK` constraint overbooking, `CHECK` status, `CHECK` harga non-negatif, dan unique index ekspresi `COALESCE(start_time)` diverifikasi menolak data yang melanggar. PostgreSQL belum diverifikasi lokal karena build PHP di mesin pengembangan tidak menyertakan `pdo_pgsql`; validasi pgsql bergantung pada CI.
+**Verifikasi lintas driver.** Seluruh suite dijalankan hijau pada SQLite **dan** MySQL 8.4. Pada MySQL, `CHECK` constraint overbooking, `CHECK` status, `CHECK` harga non-negatif, dan unique index ekspresi `COALESCE(start_time)` diverifikasi menolak data yang melanggar. PostgreSQL tidak dapat diverifikasi lokal karena build PHP di mesin pengembangan tidak menyertakan `pdo_pgsql`; validasinya dilakukan lewat CI, yang sejak 15 Nov 2026 menjalankan seluruh suite pada **PostgreSQL 16** dan hijau (termasuk `QuotaConcurrencyTest` yang benar-benar menjalankan 8 proses paralel pada jalur `pgsql`).
 
 ## Fase 5 — Booking dan payment gateway
 
@@ -252,7 +252,9 @@ Gate kualitas akhir Fase 8: Pint bersih, PHPStan 0 error, **Pest 203 tes / 787 a
 
 ### Status Fase 9
 
-Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 299 tes / 1134 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses, `composer audit` tanpa advisory, `npm audit --omit=dev` 0 kerentanan.
+Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 311 tes / 1226 asersi lolos**, `vue-tsc --noEmit` 0 error, `npm run build` sukses, `composer audit` tanpa advisory, `npm audit --omit=dev` 0 kerentanan.
+
+**CI pertama berjalan 15 Nov 2026** (GitHub Actions, `laravel-tests`, run `43657872272`, commit `1e0a457`): seluruh langkah hijau — Pint, PHPStan, build aset, dan **Pest 311 tes / 1227 asersi pada PostgreSQL 16 + Redis**. Ini pertama kalinya suite dijalankan pada driver produksi; sebelumnya seluruh pengujian hanya berjalan di SQLite lokal.
 
 #### Bukti acceptance criteria
 
@@ -260,7 +262,7 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 299 tes / 1134 
 |---|---|---|
 | (1) 13 skenario kunci §19 lulus | ✅ | Tabel pemetaan di bawah — 13/13 punya tes otomatis |
 | (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
-| (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` (14 Nov 2026, data terkini) → 31 tabel / 228 baris, sidik jari identik sebelum dan sesudah: users=5, museums=5, bookings=11, booking_items=12, payments=11, tickets=7, ticket_scans=1, activity_logs=44; 9 tes di `BackupRestoreTest` |
+| (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` (15 Nov 2026) → 31 tabel / 256 baris, sidik jari identik sebelum dan sesudah: users=7, museums=5, bookings=12, booking_items=13, payments=12, tickets=7, ticket_scans=1, activity_logs=57; 10 tes di `BackupRestoreTest`. Latihan ini juga **lulus di CI pada PostgreSQL**, artinya jalur lintas-driver (sumber pgsql → sementara sqlite) terbukti |
 | (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
 | (5) Alarm antrean/webhook terbukti aktif | ✅ | Keempat pemeriksaan dipicu satu per satu dan masing-masing menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean gagal (6 > ambang 5), antrean menunggu (15 > ambang 10 menit), webhook tertunda (15 > ambang 10 menit), pembayaran menggantung (3 > ambang 30 menit). Setelah data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala palsu. Rincian di `MONITORING_SETUP.md` §5 |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
@@ -342,6 +344,27 @@ Catatan penting: bug 2 adalah **regresi yang diperkenalkan oleh perbaikan bug
 bukan karena tes lama gagal. Ini menegaskan bahwa perbaikan pada alur uang
 wajib disertai uji jalur pemulihannya, bukan hanya jalur normalnya.
 
+#### Bug yang ditemukan lewat CI pertama (15 Nov 2026)
+
+CI belum pernah berjalan sampai branch di-push pada 15 Nov 2026. Push pertama
+langsung menggagalkan 16 tes — **semuanya bug nyata**, bukan masalah
+konfigurasi CI, dan semuanya tidak mungkin terdeteksi dari mesin pengembang
+berbasis Windows + SQLite.
+
+| # | Bug | Mengapa lolos di lokal | Perbaikan |
+|---|---|---|---|
+| 7 | `config/inertia.php` tidak ada, sehingga paket memakai bawaan `resources/js/pages` (huruf kecil) padahal folder proyek `Pages` | Windows tidak membedakan huruf besar/kecil; Linux (runner CI dan **server produksi**) membedakannya | Config minimal menunjuk `resources/js/Pages`; `InertiaPageCaseTest` membandingkan ejaan nama folder dengan disk secara case-sensitive |
+| 8 | `db:restore` menyisipkan `id` eksplisit tanpa menyelaraskan sequence PostgreSQL | SQLite memakai ROWID maksimum dan MySQL menyesuaikan AUTO_INCREMENT sendiri, jadi hanya PostgreSQL yang rusak — tepatnya driver produksi | `resynchronizeSequences()` memakai `pg_get_serial_sequence`; tes "new rows can be inserted after a restore" menangkapnya |
+| 9 | `setval` ditulis dengan identifier berkutip (`setval("tabel_id_seq", …)`) | PostgreSQL membacanya sebagai nama kolom; argumen pertama `setval` bertipe `regclass` sehingga wajib literal string | Nama sequence dicari lewat `pg_get_serial_sequence`, dikirim sebagai parameter, tabel tanpa sequence dilewati |
+| 10 | Sidik jari `db:verify-restore` membandingkan **dua driver berbeda** | Di lokal sumber dan target sama-sama SQLite; di produksi sumber pgsql dan target sementara selalu SQLite, sehingga `boolean` (true vs 1) dan `numeric` ("-6.2000000" vs -6.2) selalu tampak berbeda | `FingerprintNormalizer` memetakan nilai ke teks kanonik; perbedaan nilai nyata tetap terdeteksi |
+| 11 | `tests/Support/quota_worker.php` memaksa `charset => 'utf8mb4'` | MySQL-only; PostgreSQL menolak nilai itu sehingga kedelapan pekerja konkurensi gagal menyambung dan tes berhenti menguji balapan | Charset, collation, dan `search_path` diwarisi dari konfigurasi induk |
+
+Pelajaran yang dicatat: **tiga dari lima bug hanya muncul pada driver/OS
+produksi**. Suite yang selalu hijau di lokal bukan bukti kesiapan produksi —
+CI yang menjalankan driver sebenarnya adalah gerbang yang wajib, bukan
+formalitas. Bug 7 khususnya akan membuat **seluruh halaman aplikasi gagal
+dimuat di server produksi** meski semua tes lokal hijau.
+
 #### Pemetaan 13 skenario kunci §19
 
 | # | Skenario | Bukti otomatis |
@@ -380,8 +403,7 @@ wajib disertai uji jalur pemulihannya, bukan hanya jalur normalnya.
 | AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi dan domain tetap | Kredensial produksi + domain HTTPS tetap + transaksi bernilai kecil nyata. **Seluruh rantai sudah terbukti di sandbox** (lihat bukti AC-4 di atas) |
 | AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot |
 | AC-5 bukti alarm pada target nyata | Semua alarm terbukti berbunyi dan ping `/fail` terkirim ke Healthchecks.io; **notifikasi ke manusia** (email/Slack) belum diverifikasi | Aktifkan Integration di Healthchecks.io, lalu picu satu alarm dan pastikan notifikasinya sampai |
-| PostgreSQL | Lingkungan lokal tidak punya `pdo_pgsql` | VPS dengan PostgreSQL 15+ |
-| CI pipeline | Repositori belum punya runner | GitHub Actions/GitLab CI |
+| PostgreSQL lokal | Lingkungan pengembangan tidak punya `pdo_pgsql` | **Tidak lagi menghalangi**: CI menjalankan seluruh suite pada PostgreSQL 16 + Redis dan hijau (run `43657872272`) |
 
 Butir-butir di atas **tidak diklaim selesai**. Langkah verifikasinya sudah
 tertulis di `docs/GO_LIVE_CHECKLIST.md` §6, §8, §9, dan §12.
