@@ -24,3 +24,6 @@ ticketing/database/*.sqlite-journal
 ticketing/.phpunit.cache/
 ticketing/.phpunit.result.cache
 
+
+# Pesan commit sementara (PowerShell here-string tidak bekerja untuk -m)
+.git-commit-msg.txt
