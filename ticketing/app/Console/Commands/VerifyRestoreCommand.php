@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Support\FingerprintNormalizer;
 use Illuminate\Console\Command;
 use Illuminate\Database\Connection;
 use Illuminate\Support\Facades\DB;
@@ -194,6 +195,12 @@ class VerifyRestoreCommand extends Command
     /**
      * Sidik jari = jumlah baris + hash isi terurut per tabel sampel.
      *
+     * Isi baris dinormalisasi lebih dulu lewat `FingerprintNormalizer` karena
+     * database sumber dan database sementara belum tentu memakai driver yang
+     * sama (produksi: PostgreSQL, sementara: SQLite). Tanpa normalisasi,
+     * perbedaan representasi `boolean` dan `numeric` antar-driver membuat
+     * sidik jari selalu dianggap berbeda meski datanya utuh.
+     *
      * @return array<string, array{count: int, hash: string}>
      */
     private function fingerprint(Connection $connection): array
@@ -210,7 +217,7 @@ class VerifyRestoreCommand extends Command
 
             $result[$table] = [
                 'count' => $rows->count(),
-                'hash' => hash('sha256', $rows->toJson()),
+                'hash' => FingerprintNormalizer::hash($rows),
             ];
         }
 

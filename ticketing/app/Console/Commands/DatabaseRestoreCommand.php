@@ -123,34 +123,47 @@ class DatabaseRestoreCommand extends Command
         }
 
         foreach ($tables as $table) {
-            // Nama sequence mengikuti konvensi Laravel: {table}_id_seq.
-            $sequence = $table.'_id_seq';
+            if (! Schema::hasColumn($table, 'id')) {
+                continue;
+            }
 
-            $exists = DB::selectOne(
-                "select 1 as ada from pg_class where relkind = 'S' and relname = ?",
-                [$sequence],
-            );
+            /*
+             * Nama sequence dicari lewat `pg_get_serial_sequence`, bukan dirakit
+             * dari konvensi `{table}_id_seq`. Nama sequence bisa berbeda bila
+             * kolom dibuat dengan cara lain, dan fungsi ini mengembalikan NULL
+             * untuk tabel tanpa sequence - sehingga tabel pivot tidak ikut
+             * diproses.
+             */
+            $sequence = DB::selectOne(
+                "select pg_get_serial_sequence(?, 'id') as nama",
+                [$table],
+            )?->nama;
 
-            if ($exists === null) {
+            if (! is_string($sequence) || $sequence === '') {
                 continue;
             }
 
             // Nama tabel berasal dari skema nyata (sudah disaring
             // Schema::hasTable), tetapi tetap dikutip agar aman.
             $quotedTable = '"'.str_replace('"', '""', $table).'"';
-            $quotedSequence = '"'.str_replace('"', '""', $sequence).'"';
 
             /*
              * setval(seq, max(id), true) bila tabel berisi, sehingga nextval
              * memberi max(id)+1. Untuk tabel kosong dipakai setval(seq, 1,
              * false) agar id berikutnya adalah 1, bukan 2.
+             *
+             * Argumen pertama `setval` bertipe `regclass`, jadi nilainya harus
+             * berupa literal string - identifier berkutip ("tabel_id_seq") akan
+             * dibaca sebagai nama kolom dan ditolak.
              */
-            DB::statement(sprintf(
-                'select setval(%s, coalesce((select max(id) from %s), 1), (select max(id) from %s) is not null)',
-                $quotedSequence,
-                $quotedTable,
-                $quotedTable,
-            ));
+            DB::statement(
+                sprintf(
+                    'select setval(?::regclass, coalesce((select max(id) from %s), 1), (select max(id) from %s) is not null)',
+                    $quotedTable,
+                    $quotedTable,
+                ),
+                [$sequence],
+            );
         }
     }
 }
