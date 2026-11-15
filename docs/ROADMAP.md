@@ -263,9 +263,9 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 311 tes / 1226 
 | (1) 13 skenario kunci §19 lulus | ✅ | Tabel pemetaan di bawah — 13/13 punya tes otomatis |
 | (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
 | (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` (15 Nov 2026) → 31 tabel / 256 baris, sidik jari identik sebelum dan sesudah: users=7, museums=5, bookings=12, booking_items=13, payments=12, tickets=7, ticket_scans=1, activity_logs=57; 10 tes di `BackupRestoreTest`. Latihan ini juga **lulus di CI pada PostgreSQL**, artinya jalur lintas-driver (sumber pgsql → sementara sqlite) terbukti |
-| (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
+| (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. **15 Nov 2026: kesiapan konfigurasi produksi diverifikasi tanpa uang sungguhan** — perintah baru `payments:check-midtrans [--probe]` memeriksa kecocokan prefix kunci dengan mode, `MIDTRANS_SNAP_URL`, pemisahan Signature Secret Key, dan `APP_URL` HTTPS/non-localhost; `--probe` membuktikan Server Key **diterima** Midtrans (`HTTP 200 Transaction doesn't exist`) tanpa membuat transaksi. Dikunci 12 tes, termasuk dua tes penjaga yang dibuktikan "menggigit". Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
 | (5) Alarm antrean/webhook terbukti aktif | ✅ | Keempat pemeriksaan dipicu satu per satu dan masing-masing menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean gagal (6 > ambang 5), antrean menunggu (15 > ambang 10 menit), webhook tertunda (15 > ambang 10 menit), pembayaran menggantung (3 > ambang 30 menit). Setelah data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala palsu. **15 Nov 2026: rantai notifikasi ke manusia dibuktikan end-to-end** — integrasi Email `MusenTix On-call` aktif; alarm dipicu → check DOWN → email "… is DOWN" masuk dengan body `[FAIL] Antrean gagal: 6 job gagal (ambang 5).` → data dibersihkan → `exit 0` → check kembali UP dan email pemulihan diterima. Rincian di `MONITORING_SETUP.md` §5–§6 |
-| (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
+| (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md`. **15 Nov 2026: sesi UAT dipersiapkan agar tidak memakan waktu museum untuk menemukan bug yang bisa dicegah** — ditambahkan matriks ketertelusuran §4A yang memetakan 34 skenario ke tes otomatis yang sudah ada, sehingga jelas mana yang wajib diuji manusia (tampilan, kamera gate, popup Snap, email nyata) dan mana yang sudah dijaga regresi. Pemetaan itu menemukan dua skenario tanpa jaring pengaman sama sekali (C4 ekspor laporan, D1/D2 antrean anomali) dan **satu bug nyata**: `/organizer/reports/export` memakai `$profile->id` tanpa null-check sehingga pengelola tanpa profil organisasi mendapat HTTP 500, bukan 404. Bug diperbaiki dan dikunci 11 tes baru di `AnomalyAndExportRegressionTest` |
 
 #### Penegakan verifikasi email pada transaksi tiket (14 Nov 2026)
 
@@ -365,6 +365,20 @@ CI yang menjalankan driver sebenarnya adalah gerbang yang wajib, bukan
 formalitas. Bug 7 khususnya akan membuat **seluruh halaman aplikasi gagal
 dimuat di server produksi** meski semua tes lokal hijau.
 
+#### Bug yang ditemukan saat menyiapkan UAT (15 Nov 2026)
+
+| # | Bug | Mengapa lolos | Perbaikan |
+|---|---|---|---|
+| 12 | `/organizer/reports/export` memakai `$profile->id` tanpa null-check | Halaman laporan (`index`) sudah menangani pengelola tanpa profil organisasi dengan paginator kosong, sehingga kasus itu tampak aman; endpoint ekspornya tidak pernah diuji | `$profile?->id` pada query kepemilikan, sehingga hasilnya **404**, bukan 500. Dikunci tes "the organizer export returns not found instead of a server error without an organizer profile" |
+
+Bug 12 ditemukan bukan dari keluhan pengguna, melainkan dari memetakan
+skenario UAT ke tes otomatis: dua skenario (C4 ekspor laporan, D1/D2 antrean
+anomali admin) ternyata tidak punya jaring pengaman sama sekali. Menulis tes
+untuknya langsung memunculkan bug ini. Pelajarannya: **skenario yang hanya
+diuji dengan mata adalah tempat bug bersembunyi** — bukan karena halamannya
+sulit, tetapi karena tidak ada yang pernah menjalankannya dengan input yang
+tidak biasa.
+
 #### Pemetaan 13 skenario kunci §19
 
 | # | Skenario | Bukti otomatis |
@@ -400,12 +414,28 @@ dimuat di server produksi** meski semua tes lokal hijau.
 
 | Butir | Penghalang | Yang dibutuhkan |
 |---|---|---|
-| AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi dan domain tetap | Kredensial produksi + domain HTTPS tetap + transaksi bernilai kecil nyata. **Seluruh rantai sudah terbukti di sandbox** (lihat bukti AC-4 di atas) |
-| AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot |
+| AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi dan domain tetap | Kredensial produksi + domain HTTPS tetap + transaksi bernilai kecil nyata. **Seluruh rantai sudah terbukti di sandbox** dan **kesiapan konfigurasi produksi sudah diverifikasi** lewat `payments:check-midtrans --probe` (lihat bukti AC-4 di atas) |
+| AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot. **Persiapan sudah maksimal tanpa manusia**: matriks ketertelusuran 34 skenario di `UAT_PLAN.md` §4A, dan celah pengujian C4/D1/D2 sudah ditutup |
 | PostgreSQL lokal | Lingkungan pengembangan tidak punya `pdo_pgsql` | **Tidak lagi menghalangi**: CI menjalankan seluruh suite pada PostgreSQL 16 + Redis dan hijau (run `43657872272`) |
 
 Butir-butir di atas **tidak diklaim selesai**. Langkah verifikasinya sudah
 tertulis di `docs/GO_LIVE_CHECKLIST.md` §6, §8, §9, dan §12.
+
+Yang berubah pada 15 Nov 2026: **tidak ada lagi pekerjaan teknis yang tersisa
+yang dapat dikerjakan tanpa akses eksternal** untuk AC-4 dan AC-6. Keduanya
+kini menunggu hal di luar kendali pengembang — akun Midtrans produksi, domain
+tetap, dan seorang perwakilan museum. Agar penantian itu tidak menjadi
+pekerjaan yang tertunda, dua hal dikerjakan lebih dulu:
+
+- **AC-4:** perintah `payments:check-midtrans [--probe]` menangkap kesalahan
+  konfigurasi yang paling mahal (prefix kunci tidak cocok dengan mode, Snap URL
+  tertinggal di host sandbox, `APP_URL` localhost di mode produksi) **sebelum**
+  uang sungguhan dipakai. Dikunci 12 tes.
+- **AC-6:** matriks ketertelusuran memetakan 34 skenario UAT ke tes otomatis,
+  sehingga sesi dengan museum pilot hanya memakai waktunya untuk hal yang
+  memang tidak dapat dibuktikan mesin. Pemetaan itu sendiri menemukan satu bug
+  produksi (HTTP 500 pada ekspor laporan pengelola tanpa profil organisasi)
+  yang sudah diperbaiki dan dikunci 11 tes.
 
 Catatan AC-5: rantai alarm kini terbukti **utuh sampai ke manusia**, bukan hanya
 sampai ke monitor. Keempat pemeriksaan terbukti berbunyi dan mengirim ping

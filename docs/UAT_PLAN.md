@@ -128,6 +128,70 @@ Skenario yang gagal wajib punya nomor temuan di §5.
 
 ---
 
+## 4A. Ketertelusuran: skenario mana yang sudah dijaga tes otomatis
+
+Sesi UAT memerlukan perwakilan museum dan waktu mereka. Agar waktu itu dipakai
+untuk hal yang **hanya dapat dibuktikan manusia** — tampilan, alur nyata,
+perangkat gate sungguhan, pembayaran produksi — tabel di bawah memetakan tiap
+skenario ke bukti otomatis yang sudah ada di suite.
+
+Kolom **"Masih perlu diuji manual"** adalah yang wajib dijalankan pada sesi UAT.
+Kolom **"Bukti otomatis"** adalah pengaman regresi: bila suatu saat perilakunya
+rusak, suite akan gagal sebelum sesi UAT berikutnya.
+
+| # | Skenario | Bukti otomatis | Masih perlu diuji manual |
+|---|---|---|---|
+| A1 | Cari museum pilot | `MuseumCatalogTest` (`public listing can be filtered by search keyword`, kategori, kota) | Tampilan hasil pencarian || A2 | Kuota tersisa tampil benar | `AvailabilityApiTest`, `QuotaServiceTest` | Angka pada layar |
+| A3 | Ringkasan pesanan dan total | `BookingFlowTest` (batas jumlah, slot tertutup, tanggal lewat) | Tampilan ringkasan |
+| A4 | Pembayaran selesai | `PaymentWebhookTest` (AC-4: konfirmasi + tiket terbit) | **Ya** — popup Snap nyata |
+| A5 | Tiket tampil dengan QR | `Phase8PageRegressionTest`, `MuseumTicketDisplayTest` | Tampilan QR |
+| A6 | Email e-ticket diterima | `TransactionalEmailTest` (antrean, isi, idempoten) | **Ya** — kotak masuk nyata |
+| A7 | Bayar ulang ditolak | `PaymentWebhookTest` (percobaan kedua memakai tagihan yang sama) | Pesan di layar |
+| A8 | Pesanan kedaluwarsa | `BookingFlowTest` (perintah expire, idempoten, kuota kembali) | Menunggu 15 menit sungguhan |
+| B1 | Scanner tampil | `ScanServiceTest`, `PwaTest` (shortcut scanner) | **Ya** — perangkat gate |
+| B2 | Pindai tiket valid | `ScanServiceTest` (`scan valid mengubah tiket menjadi used`) | **Ya** — kamera nyata |
+| B3 | Pindai ulang | `ScanServiceTest` (`already_used`) | Pesan di layar |
+| B4 | Tiket museum lain | `ScanServiceTest` (`wrong_museum`) | **Ya** — dua museum |
+| B5 | Kode manual | `SecurityControlsTest` (throttle kode manual) | **Ya** — input manual |
+| B6 | Kode salah berulang | `SecurityControlsTest` (throttle terpisah dari QR) | Pesan di layar |
+| B7 | Riwayat scan | `ScanServiceTest` (idempotensi `client_scan_uuid`) | Tampilan riwayat |
+| C1 | Dashboard pengelola | `Phase8PageRegressionTest` (halaman laporan) | Angka di layar |
+| C2 | Ubah kuota slot | `TicketAndScheduleTest` (BR-20 batas kuota) | Perubahan di halaman publik |
+| C3 | Tandai tanggal tutup | `SecurityControlsTest`, `MuseumManagementTest` | **Ya** — alur penuh |
+| C4 | Ekspor laporan | `AnomalyAndExportRegressionTest` (isi CSV, angka, kepemilikan) | **Ya** — berkas terbuka di Excel |
+| C5 | Akses data museum lain | `MuseumAuthorizationTest`, `Phase8PageRegressionTest` | — |
+| D1 | Antrean anomali terbuka | `AnomalyAndExportRegressionTest` | — |
+| D2 | Transaksi normal tidak masuk antrean | `AnomalyAndExportRegressionTest` | — |
+| D3 | `ops:health --json` | `HealthCheckTest` (6 tes, termasuk keluaran JSON) | **Ya** — dijalankan di produksi |
+| D4 | Log bersih | — | **Ya** — log produksi nyata |
+| E1 | Admin tanpa login | `RoleAuthorizationTest`, `SecurityControlsTest` | — |
+| E2 | Login salah 6 kali | `SecurityControlsTest` (throttle, tidak mengunci IP lain) | **Ya** — diamati |
+| E3 | Jaringan lambat | `PwaTest` (service worker, fallback offline) | **Ya** — perangkat nyata |
+| E4 | Internet gate putus | `PwaTest` (jalur offline, tidak menyimpan area transaksional) | **Ya** — mode pesawat |
+| E5 | Halaman bantuan | `ContentPageTest` | — |
+| F1–F5 | Pembayaran produksi | `PaymentWebhookTest` (seluruh rantai di sandbox) | **Ya** — AC-4, wajib produksi |
+
+**Cara membaca tabel ini.** Skenario dengan bukti otomatis **tetap dijalankan**
+saat UAT — UAT membuktikan pengalaman manusia, bukan kebenaran logika. Yang
+berubah: bila ada yang gagal, penyebabnya dapat dipersempit dengan cepat, dan
+regresi tidak menunggu sesi UAT berikutnya untuk ketahuan.
+
+### 4A.1 Temuan dari penyiapan ketertelusuran
+
+Pemetaan ini menemukan dua skenario yang **tidak punya jaring pengaman sama
+sekali**: C4 (ekspor laporan) dan D1/D2 (antrean anomali admin). Keduanya
+sebelumnya hanya diuji dengan mata.
+
+Saat menulis tesnya, ditemukan satu bug nyata: endpoint
+`/organizer/reports/export` memakai `$profile->id` tanpa memeriksa apakah
+profil organisasi ada, sedangkan halaman laporannya sendiri sudah menangani
+kasus itu dengan paginator kosong. Akibatnya pengelola tanpa profil organisasi
+mendapat **HTTP 500** saat mengekspor, bukan 404. Sudah diperbaiki dan dikunci
+tes (`the organizer export returns not found instead of a server error without
+an organizer profile`).
+
+---
+
 ## 5. Daftar temuan
 
 | # | Skenario | Uraian | Tingkat | Rencana tindak lanjut | Status |

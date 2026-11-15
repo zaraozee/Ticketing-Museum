@@ -125,10 +125,18 @@ Penanggung jawab museum: _diisi_
 | 6.8 | Refund transaksi uji diproses | status `refunded`, tiket `voided` | ☐ |
 | 6.9 | `payments:reconcile` berjalan tanpa error di produksi | log terjadwal | ☐ |
 | 6.10 | Masa tenggang `--grace-hours` sesuai kebijakan museum (default 2 jam) | `php artisan payments:reconcile --grace-hours=2` di cron | ☐ |
+| 6.11 | `php artisan payments:check-midtrans --probe` keluar dengan kode 0 di server produksi | keluaran perintah | ☑ **lokal** — `exit 0`, kunci diterima Midtrans (`HTTP 200 Transaction doesn't exist`); ulangi di server dengan kunci produksi |
 
 > **Catatan AC-4.** Butir 6.6–6.8 memerlukan akun Midtrans produksi nyata dan
 > tidak dapat dibuktikan di lingkungan pengembangan. Lihat
 > `ROADMAP.md` Fase 9 bagian "Yang belum dapat dibuktikan".
+>
+> **Jalankan 6.11 sebelum 6.6.** Perintah ini menangkap kesalahan konfigurasi
+> yang paling mahal sebelum uang sungguhan dipakai: prefix kunci yang tidak
+> cocok dengan mode, `MIDTRANS_SNAP_URL` yang tertinggal di host sandbox,
+> Signature Secret Key yang belum dipisahkan, dan `APP_URL` localhost pada mode
+> produksi. Tanpa langkah ini, kegagalan pertama baru terlihat pada transaksi
+> berbayar. Rincian di `MIDTRANS_SETUP.md` §6.1.
 >
 > **Yang sudah terbukti di sandbox (14 Nov 2026).** Rantai penuh berjalan dengan
 > notifikasi nyata dari Midtrans: pembayaran `MUS-FT6U7E` (Rp50.000) →
@@ -259,6 +267,21 @@ Penanggung jawab museum: _diisi_
 | 12.2 | Seluruh skenario berstatus lulus atau diterima dengan catatan | tabel hasil | ☐ |
 | 12.3 | **Persetujuan tertulis perwakilan museum pilot** (AC-6) | tanda tangan | ☐ |
 | 12.4 | Daftar masalah sisa disepakati dan dijadwalkan | tabel | ☐ |
+
+> **Persiapan yang sudah selesai tanpa perwakilan museum.** `UAT_PLAN.md` §4A
+> memetakan seluruh 34 skenario ke tes otomatis yang sudah ada, sehingga sesi
+> UAT hanya memakai waktu museum untuk hal yang memang tidak dapat dibuktikan
+> mesin: tampilan di layar, kamera perangkat gate, popup Snap sungguhan, email
+> yang benar-benar masuk, dan pembayaran produksi.
+>
+> Pemetaan itu menemukan dua skenario tanpa jaring pengaman sama sekali (C4
+> ekspor laporan, D1/D2 antrean anomali admin) dan satu bug produksi: ekspor
+> laporan pengelola tanpa profil organisasi menghasilkan **HTTP 500**, bukan
+> 404. Bug sudah diperbaiki dan dikunci 11 tes di
+> `AnomalyAndExportRegressionTest`.
+>
+> Yang **tidak** dapat disiapkan tanpa manusia: butir 12.3. Tanda tangan tidak
+> dapat diwakilkan.
 
 ---
 

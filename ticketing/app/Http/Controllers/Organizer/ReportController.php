@@ -111,9 +111,19 @@ class ReportController extends Controller
         $startDate = $request->get('start_date', now()->startOfMonth()->format('Y-m-d'));
         $endDate = $request->get('end_date', now()->format('Y-m-d'));
 
-        // Validasi kepemilikan
-        $museum = Museum::where('id', $museumId)
-            ->where('organizer_profile_id', $profile->id)
+        /*
+         * Kepemilikan diverifikasi ulang: `museum_id` berasal dari query string
+         * dan berkas ini memuat data pribadi pemesan (AC-2).
+         *
+         * `$profile?->id` sengaja dipakai, bukan `$profile->id`: pengelola yang
+         * belum punya profil organisasi adalah keadaan yang sah — halaman
+         * laporannya sendiri sudah menanganinya dengan paginator kosong.
+         * Memakai `$profile->id` membuat kasus itu berakhir sebagai 500,
+         * bukan 404.
+         */
+        $museum = Museum::query()
+            ->where('id', $museumId)
+            ->where('organizer_profile_id', $profile?->id)
             ->firstOrFail();
 
         $bookings = Booking::where('museum_id', $museum->id)

@@ -161,6 +161,47 @@ nyata dari Midtrans ke server kita.
 7. Uji satu transaksi bernilai kecil (mis. Rp1.000) dengan kartu sungguhan,
    lalu pastikan tiket terbit.
 
+### 6.1 Periksa dulu sebelum memakai uang sungguhan
+
+Langkah 1–6 mudah salah dengan cara yang tidak terlihat sampai transaksi
+pertama gagal. Karena itu ada perintah khusus:
+
+```bash
+php artisan payments:check-midtrans          # hanya membaca konfigurasi
+php artisan payments:check-midtrans --probe  # + memastikan kunci diterima Midtrans
+```
+
+Perintah ini **tidak membuat transaksi**. Mode `--probe` mengirim permintaan
+status untuk order yang tidak ada; jawaban `Transaction doesn't exist` berarti
+kunci **diterima**, sedangkan `401` berarti kunci ditolak.
+
+Yang diperiksa:
+
+| Pemeriksaan | Kegagalan yang dicegah |
+|---|---|
+| Server Key dan Client Key terisi | `401` pada transaksi pertama |
+| Prefix kunci cocok dengan mode | Snap.js produksi menolak token sandbox (dan sebaliknya) |
+| `MIDTRANS_SNAP_URL` mengikuti mode | Halaman pembayaran memuat skrip host yang salah |
+| Signature Secret Key terpisah | Semua notifikasi ditolak → pembayaran lunas tidak menjadi tiket |
+| `APP_URL` HTTPS dan bukan localhost saat mode produksi | Midtrans tidak dapat menjangkau webhook → tiket tidak pernah terbit |
+| Konfigurasi tidak sedang di-cache | `.env` baru diabaikan karena `config:cache` basi |
+
+Keluaran normal di sandbox (kondisi proyek saat ini):
+
+```
+ [OK] MIDTRANS_SERVER_KEY: SB-Mid-s..n~Tc
+ [OK] MIDTRANS_IS_PRODUCTION: false (sandbox)
+ [OK] MIDTRANS_SIGNATURE_KEY: SB-Mid-s..fRov (terpisah dari Server Key)
+ [OK] API Snap: https://app.sandbox.midtrans.com
+ [OK] Snap.js: https://app.sandbox.midtrans.com/snap/snap.js
+ [OK] Kunci diterima Midtrans (HTTP 200: Transaction doesn't exist.)
+ Konfigurasi konsisten.
+```
+
+Perintah ini keluar dengan kode `1` bila ada ketidakcocokan, sehingga dapat
+dipakai sebagai langkah wajib pada daftar periksa go-live (`GO_LIVE_CHECKLIST.md`
+§7) dan bukan sekadar dibaca manusia.
+
 ---
 
 ## 7. Kartu uji sandbox
@@ -177,8 +218,10 @@ Masa berlaku: bulan/tahun di masa depan. CVV: `123`.
 
 ## 8. Daftar periksa saat pembayaran gagal
 
-1. `php artisan config:show services.midtrans` — pastikan `is_production`,
-   `api_base_url`, dan `snap_url` konsisten satu sama lain.
+1. `php artisan payments:check-midtrans` — periksa konsistensi kunci, mode, dan
+   URL sekaligus. Bila perlu, tambahkan `--probe` untuk memastikan kunci
+   benar-benar diterima Midtrans. Ini menggantikan pemeriksaan manual
+   `config:show` satu per satu.
 2. Cek `storage/logs/laravel.log` untuk `midtrans.snap_failed`; body respons
    Midtrans ikut tercatat di sana.
 3. `401` → kunci bukan Server Key, atau kunci sudah di-revoke.
@@ -391,3 +434,52 @@ Yang **tetap belum** terbukti: Midtrans mengirim notifikasi atas inisiatifnya
 sendiri ke URL yang terdaftar. Itu memerlukan URL notifikasi di dashboard
 menunjuk ke tunnel aktif — langkah manual yang harus diulang setiap tunnel
 dijalankan ulang, dan justru alasan AC-4 menuntut domain tetap.
+
+### 10.5 Verifikasi konfigurasi tanpa memakai uang sungguhan (15 Nov 2026)
+
+Sisa pekerjaan AC-4 bersifat lingkungan, tetapi kesalahan **konfigurasi** saat
+beralih ke produksi tetap dapat terjadi dan gejalanya menyesatkan. Karena itu
+ditambahkan perintah `payments:check-midtrans` (§6.1) beserta 12 tes yang
+mengunci perilakunya.
+
+Yang diperiksa pada konfigurasi nyata proyek ini:
+
+| Pemeriksaan | Hasil |
+|---|---|
+| Server Key dan Client Key terisi | `[OK]` |
+| Prefix kunci cocok dengan mode | `[OK]` — kunci `SB-Mid-…` pada mode sandbox |
+| Signature Secret Key terpisah dari Server Key | `[OK]` — kondisi setelah regenerasi |
+| Snap.js, API Snap, API Status mengikuti mode | `[OK]` — ketiganya menunjuk host sandbox |
+| `--probe` ke API Midtrans | `[OK]` **HTTP 200 `Transaction doesn't exist.`** — kunci diterima, bukan ditolak |
+| Kode keluar | `0` (konfigurasi konsisten) |
+
+`--probe` sengaja memakai `GET /v2/{order}/status` untuk order yang tidak ada,
+bukan membuat transaksi. Jawaban `Transaction doesn't exist` adalah hasil yang
+**benar**: Midtrans mengenali kuncinya lalu mengatakan transaksinya tidak ada.
+`401` akan berarti kunci ditolak, dan itulah yang ingin diketahui sebelum uang
+sungguhan dipakai.
+
+Tes yang menyertainya membuktikan perintah ini **gagal** pada kondisi yang
+berbahaya — bukan sekadar selalu hijau:
+
+| Kondisi yang diuji | Perilaku yang dikunci |
+|---|---|
+| Kunci `SB-Mid-…` dengan `MIDTRANS_IS_PRODUCTION=true` | ditolak, `exit 1` |
+| Kunci produksi dengan mode sandbox | ditolak, `exit 1` |
+| `MIDTRANS_SNAP_URL` tertinggal di host sandbox saat mode produksi | ditolak, `exit 1` |
+| `APP_URL` localhost saat mode produksi | ditolak, `exit 1` |
+| `APP_URL` bukan HTTPS | ditolak, `exit 1` |
+| Kredensial kosong | disebut satu per satu, `exit 1` |
+| `--probe` dijawab `401` / `403` | pesan spesifik, `exit 1` |
+| Gateway tidak terjangkau | pesan jelas, bukan crash |
+| Kunci penuh tercetak di terminal | tidak pernah terjadi (hanya sebagian dimask) |
+
+Kedua tes penjaga (prefix kunci dan localhost produksi) dibuktikan "menggigit"
+dengan sengaja merusak kodenya lebih dulu: masing-masing membuat tes gagal, lalu
+kode dikembalikan.
+
+> **Batas yang tetap jujur.** Ini memverifikasi **konfigurasi**, bukan transaksi
+> produksi. AC-4 tetap menuntut akun Midtrans produksi, domain HTTPS tetap, dan
+> satu pembayaran bernilai kecil yang benar-benar terjadi. Yang berubah: saat
+> ketiganya tersedia, kesalahan konfigurasi tidak lagi menjadi penyebab
+> kegagalan yang harus ditebak.
