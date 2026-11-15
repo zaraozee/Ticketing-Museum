@@ -6,6 +6,7 @@ use App\Models\Museum;
 use App\Models\Ticket;
 use App\Models\TicketType;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
 
 /*
@@ -100,7 +101,10 @@ test('the backup records the driver and timestamp so a restore can be judged', f
 
     $payload = json_decode(File::get($path), true, 512, JSON_THROW_ON_ERROR);
 
-    expect($payload['connection'])->toBe('sqlite')
+    // Driver tidak dipatok ke satu nilai: suite yang sama dijalankan pada SQLite
+    // (lokal) dan PostgreSQL (CI). Yang penting adalah nilainya jujur melaporkan
+    // driver yang benar-benar dipakai, bukan nilai tertentu.
+    expect($payload['connection'])->toBe(DB::connection()->getDriverName())
         ->and($payload['created_at'])->not->toBeEmpty();
 });
 
@@ -151,6 +155,26 @@ test('restoring twice produces the same result', function (): void {
     $this->artisan('db:restore', ['file' => $backup, '--force' => true])->assertSuccessful();
 
     expect(User::query()->orderBy('id')->pluck('name')->all())->toBe($first);
+});
+
+test('new rows can be inserted after a restore', function (): void {
+    // Baris restore disisipkan dengan `id` eksplisit. Di PostgreSQL sequence
+    // tidak ikut maju, sehingga INSERT berikutnya gagal "duplicate key" bila
+    // sequence tidak diselaraskan. SQLite memakai ROWID maksimum sehingga
+    // lolos sendiri - karena itu tes ini hanya membuktikan pada PostgreSQL,
+    // tetapi tetap dijalankan di semua driver sebagai penjaga regresi.
+    $user = User::factory()->create(['name' => 'Sebelum Restore']);
+    $museum = Museum::factory()->published()->create();
+    Booking::factory()->forUser($user)->for($museum)->confirmed()->create();
+
+    $backup = runBackup($this->directory);
+
+    $this->artisan('db:restore', ['file' => $backup, '--force' => true])->assertSuccessful();
+
+    $baru = User::factory()->create(['name' => 'Sesudah Restore']);
+
+    expect($baru->exists)->toBeTrue()
+        ->and(User::query()->find($baru->id)?->name)->toBe('Sesudah Restore');
 });
 
 test('the end-to-end restore drill reports success without touching the source database', function (): void {

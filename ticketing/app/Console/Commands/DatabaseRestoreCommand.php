@@ -89,6 +89,12 @@ class DatabaseRestoreCommand extends Command
             throw new RuntimeException('Restore gagal: '.$exception->getMessage(), 0, $exception);
         }
 
+        // Baris disisipkan dengan `id` eksplisit, sehingga sequence PostgreSQL
+        // tidak ikut maju. Tanpa langkah ini, INSERT berikutnya akan gagal
+        // "duplicate key value violates unique constraint" karena sequence
+        // masih menunjuk id yang sudah terpakai.
+        $this->resynchronizeSequences($insertOrder);
+
         $totalRows = array_sum(array_map('count', $tables));
 
         $this->info(sprintf(
@@ -98,5 +104,53 @@ class DatabaseRestoreCommand extends Command
         ));
 
         return self::SUCCESS;
+    }
+
+    /**
+     * Selaraskan sequence id dengan nilai id tertinggi setelah restore.
+     *
+     * Hanya berlaku untuk PostgreSQL. MySQL menyesuaikan AUTO_INCREMENT sendiri
+     * saat baris dengan id eksplisit disisipkan, dan SQLite memakai ROWID
+     * maksimum. PostgreSQL tidak: sequence tetap pada posisi sebelumnya,
+     * sehingga INSERT tanpa `id` akan menabrak primary key.
+     *
+     * @param  array<int, string>  $tables
+     */
+    private function resynchronizeSequences(array $tables): void
+    {
+        if (DB::getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        foreach ($tables as $table) {
+            // Nama sequence mengikuti konvensi Laravel: {table}_id_seq.
+            $sequence = $table.'_id_seq';
+
+            $exists = DB::selectOne(
+                "select 1 as ada from pg_class where relkind = 'S' and relname = ?",
+                [$sequence],
+            );
+
+            if ($exists === null) {
+                continue;
+            }
+
+            // Nama tabel berasal dari skema nyata (sudah disaring
+            // Schema::hasTable), tetapi tetap dikutip agar aman.
+            $quotedTable = '"'.str_replace('"', '""', $table).'"';
+            $quotedSequence = '"'.str_replace('"', '""', $sequence).'"';
+
+            /*
+             * setval(seq, max(id), true) bila tabel berisi, sehingga nextval
+             * memberi max(id)+1. Untuk tabel kosong dipakai setval(seq, 1,
+             * false) agar id berikutnya adalah 1, bukan 2.
+             */
+            DB::statement(sprintf(
+                'select setval(%s, coalesce((select max(id) from %s), 1), (select max(id) from %s) is not null)',
+                $quotedSequence,
+                $quotedTable,
+                $quotedTable,
+            ));
+        }
     }
 }

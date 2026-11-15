@@ -81,6 +81,11 @@ test('parallel workers competing for the last seats never oversell', function ()
         'database' => $config['database'] ?? null,
         'username' => $config['username'] ?? null,
         'password' => $config['password'] ?? null,
+        // Charset dan search_path wajib ikut: PostgreSQL memakai `utf8`
+        // (bukan `utf8mb4`) dan pekerja tanpa search_path tidak menemukan tabel.
+        'charset' => $config['charset'] ?? null,
+        'collation' => $config['collation'] ?? null,
+        'search_path' => $config['search_path'] ?? null,
     ]));
 
     $worker = base_path('tests/Support/quota_worker.php');

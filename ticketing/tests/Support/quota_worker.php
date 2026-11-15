@@ -34,6 +34,9 @@ if ($configFile !== null && is_file($configFile)) {
     if (is_array($config)) {
         $name = 'concurrency';
 
+        // Charset bergantung driver: PostgreSQL memakai `utf8` dan menolak
+        // `utf8mb4` (MySQL). Nilai dipakai dari konfigurasi induk agar pekerja
+        // menyambung persis seperti proses tesnya.
         config([
             "database.connections.{$name}" => [
                 'driver' => $config['driver'],
@@ -42,11 +45,12 @@ if ($configFile !== null && is_file($configFile)) {
                 'database' => $config['database'],
                 'username' => $config['username'],
                 'password' => $config['password'],
-                'charset' => 'utf8mb4',
-                'collation' => 'utf8mb4_unicode_ci',
+                'charset' => $config['charset'] ?? 'utf8mb4',
+                'collation' => $config['collation'] ?? 'utf8mb4_unicode_ci',
                 'prefix' => '',
                 'strict' => true,
                 'engine' => null,
+                'search_path' => $config['search_path'] ?? 'public',
             ],
             'database.default' => $name,
         ]);
