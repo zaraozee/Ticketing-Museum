@@ -190,9 +190,9 @@ Penanggung jawab museum: _diisi_
 | 9.3 | Alarm gagal job terbukti berbunyi (AC-5) | tangkapan notifikasi | ☑ **terbukti** — `exit 1`, 6 job gagal > ambang 5 |
 | 9.4 | Alarm antrean menumpuk terbukti berbunyi (AC-5) | tangkapan notifikasi | ☑ **terbukti** — `exit 1`, job tertua 15 mnt > ambang 10 |
 | 9.5 | Alarm webhook tertunda terbukti berbunyi (AC-5) | tangkapan notifikasi | ☑ **terbukti** — `exit 1`, 15 mnt > ambang 10 |
-| 9.6 | Alarm dikirim ke saluran yang dibaca orang (email/WhatsApp/Telegram) | uji kirim | ☐ |
+| 9.6 | Alarm dikirim ke saluran yang dibaca orang (email/WhatsApp/Telegram) | uji kirim | ☑ **terbukti** — integrasi Email `MusenTix On-call`; email "… is DOWN" diterima saat alarm dipicu (15 Nov 2026) |
 | 9.7 | Log aplikasi berotasi | `logrotate` terpasang | ☐ |
-| 9.8 | Kontak penerima alarm tercatat | daftar kontak | ☐ |
+| 9.8 | Kontak penerima alarm tercatat | daftar kontak | ☑ **tercatat** — `pearluneea@gmail.com` (integrasi Email `MusenTix On-call`) |
 
 > **AC-5 menuntut alarm "terbukti aktif", bukan sekadar terpasang.** Caranya:
 > picu kegagalan buatan (mis. hentikan worker sampai antrean menumpuk), lalu
@@ -204,9 +204,22 @@ Penanggung jawab museum: _diisi_
 > data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala
 > palsu. Rincian di `MONITORING_SETUP.md` §5.
 >
+> **Hasil uji 15 Nov 2026 — rantai sampai ke manusia.** Integrasi Email
+> dipasang pada check `MusenTix ops:health`, lalu alarm dipicu ulang: check
+> berubah DOWN, email "… is DOWN" masuk ke kotak masuk dengan body
+> `[FAIL] Antrean gagal: 6 job gagal (ambang 5).`, data uji dibersihkan,
+> `ops:health` kembali `exit 0`, dan email pemulihan diterima. Rincian di
+> `MONITORING_SETUP.md` §5–§6.
+>
 > Pemasangan: isi `MONITORING_PING_URL` dengan ping URL Healthchecks.io;
 > `ops:health` sendiri yang mengirim ping (`/fail` saat ada alarm). Langkah
 > lengkap dan cara mengumpulkan ketiga bukti ada di `MONITORING_SETUP.md`.
+>
+> **Sisa pekerjaan saat go-live.** Butir 9.1, 9.2, dan 9.7 baru dapat
+> dicentang setelah aplikasi berjalan di VPS (cron produksi, rotasi log). Alarm
+> di atas diuji dari laptop pengembangan, jadi rantai `server produksi →
+> Healthchecks.io` belum terbukti. Pertimbangkan juga kanal notifikasi kedua
+> (Slack/Telegram) agar kegagalan satu transport tidak menghilangkan alarm.
 
 ---
 

@@ -141,11 +141,40 @@ Setelah keempatnya terbukti, seluruh data uji dihapus dan `ops:health` kembali
 `exit 0` dengan keempat pemeriksaan `[OK]` — membuktikan alarm tidak menyala
 palsu saat kondisi normal.
 
-**Batas yang jujur.** Semua alarm terbukti **berbunyi** dan ping `/fail`
-terkirim ke Healthchecks.io. Yang belum terbukti adalah **notifikasi sampai ke
-manusia** (email/Slack/Telegram pada Integrations Healthchecks.io) — itu
-konfigurasi di akun Healthchecks.io dan tidak dapat diverifikasi dari sisi
-aplikasi. Prosedurnya ada di §6.
+### Bukti notifikasi sampai ke manusia (15 Nov 2026)
+
+Uji alarm sebelumnya hanya membuktikan ping **terkirim**. Yang belum terbukti
+adalah apakah ada **manusia** yang benar-benar diberi tahu — alarm yang tidak
+pernah dibaca sama saja dengan tidak ada alarm. Kekurangan itu ditutup dengan
+satu uji rantai penuh.
+
+**Konfigurasi.** Integrasi **Email** pada project Healthchecks.io, nama
+`MusenTix On-call`, terpasang pada check `MusenTix ops:health`
+(UUID `e4101373-8628-42ae-a9ae-9ec8ef28c4ef`, period 5 menit, grace 5 menit).
+Status integrasi: **ON**.
+
+**Rantai yang dibuktikan:**
+
+| Langkah | Bukti |
+|---|---|
+| 1. Kondisi normal | `ops:health` → keempat pemeriksaan `[OK]`, `exit 0`, check **UP** |
+| 2. Alarm dipicu | 6 baris `failed_jobs` disisipkan (ambang 5, label `ac5-alarm-probe`) |
+| 3. Perintah mendeteksi | `[FAIL] Antrean gagal: 6 job gagal (ambang 5).` → `exit 1` |
+| 4. Ping kegagalan terkirim | `POST <ping-url>/fail` berhasil; tidak ada `ops.health_ping_failed` pada log |
+| 5. Monitor menandai | Check `MusenTix ops:health` berubah **DOWN** (merah) di dashboard |
+| 6. **Manusia diberi tahu** | Email "**… is DOWN**" masuk ke kotak masuk, body memuat `[FAIL] Antrean gagal: 6 job gagal (ambang 5).` |
+| 7. Data uji dibersihkan | 6 baris probe dihapus; `failed_jobs` kembali 0 |
+| 8. Alarm pulih sendiri | `ops:health` → `[OK]` semua, `exit 0`, check kembali **UP**, email pemulihan diterima |
+
+Langkah 6 dan 8 adalah inti AC-5: notifikasi **sampai** ke manusia saat rusak,
+dan **berhenti** saat pulih — bukan alarm yang menyala terus sehingga diabaikan.
+
+**Batas yang jujur.** Alarm ini berbunyi dari **laptop pengembangan** lewat
+scheduler lokal (`schedule:work`), bukan dari server produksi. Yang terbukti
+adalah rantai `ops:health → Healthchecks.io → email → manusia`. Rantai
+`server produksi → Healthchecks.io` baru terbukti saat aplikasi terpasang di
+VPS — itu bagian dari AC-4/AC-6 yang masih terblokir, bukan cacat konfigurasi
+monitor. Konfigurasi cron produksinya ada di `DEPLOYMENT.md`.
 
 ---
 
@@ -160,6 +189,20 @@ manusia. Pada **Integrations**:
 Tanpa integrasi, check akan berubah merah tanpa ada yang menyadarinya. Ini
 lubang yang mudah terlewat: alarm yang tidak pernah dibaca sama saja dengan
 tidak ada alarm.
+
+**Status saat ini: aktif.** Integrasi Email `MusenTix On-call` terpasang pada
+check `MusenTix ops:health` dan rantainya sudah dibuktikan end-to-end
+(§5 "Bukti notifikasi sampai ke manusia"). Saat check DOWN, email "… is DOWN"
+masuk ke kotak masuk; saat pulih, email pemulihan menyusul.
+
+Dua hal yang perlu diketahui saat mengoperasikannya:
+
+- Notifikasi hanya dikirim **saat status berubah**, bukan berulang. Untuk
+  alarm yang berlangsung lama, aktifkan **hourly/daily email reminders** di
+  *Account Settings → Email Reports* agar tidak ada yang terlewat.
+- Healthchecks.io menyarankan **dua kanal berbeda** (mis. Email + Slack) supaya
+  kegagalan satu transport tidak membuat alarm hilang. Kanal kedua belum
+  dipasang; Email adalah satu-satunya jalur saat ini.
 
 ---
 

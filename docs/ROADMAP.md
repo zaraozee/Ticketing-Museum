@@ -264,7 +264,7 @@ Gerbang mutu akhir: **Pint bersih**, **PHPStan 0 error**, **Pest 311 tes / 1226 
 | (2) Tidak ada temuan kritis/tinggi terbuka | ✅ | `docs/SECURITY_REVIEW.md` — 0 kritis, 0 tinggi; 3 sedang dan 5 rendah diterima dengan mitigasi |
 | (3) Restore backup berhasil diuji | ✅ | `php artisan db:verify-restore` (15 Nov 2026) → 31 tabel / 256 baris, sidik jari identik sebelum dan sesudah: users=7, museums=5, bookings=12, booking_items=13, payments=12, tickets=7, ticket_scans=1, activity_logs=57; 10 tes di `BackupRestoreTest`. Latihan ini juga **lulus di CI pada PostgreSQL**, artinya jalur lintas-driver (sumber pgsql → sementara sqlite) terbukti |
 | (4) Pembayaran produksi bernilai kecil end-to-end | ⚠️ **Sandbox terpenuhi, produksi terblokir** | **Sandbox terbukti penuh**: pembayaran nyata `MUS-FT6U7E` (Rp50.000) → notifikasi Midtrans masuk **sendiri** 3 detik kemudian (`payment_events` id 16, signature valid, `applied`) tanpa `payments:reconcile` → booking `confirmed` → 1 tiket terbit → `ops:health` exit 0. Signature notifikasi **identik** dengan `GET /v2/{order}/status`. Sisa AC-4 murni lingkungan: akun Midtrans **produksi**, domain tetap, satu transaksi kecil |
-| (5) Alarm antrean/webhook terbukti aktif | ✅ | Keempat pemeriksaan dipicu satu per satu dan masing-masing menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean gagal (6 > ambang 5), antrean menunggu (15 > ambang 10 menit), webhook tertunda (15 > ambang 10 menit), pembayaran menggantung (3 > ambang 30 menit). Setelah data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala palsu. Rincian di `MONITORING_SETUP.md` §5 |
+| (5) Alarm antrean/webhook terbukti aktif | ✅ | Keempat pemeriksaan dipicu satu per satu dan masing-masing menghasilkan `exit 1` + ping `/fail` ke Healthchecks.io: antrean gagal (6 > ambang 5), antrean menunggu (15 > ambang 10 menit), webhook tertunda (15 > ambang 10 menit), pembayaran menggantung (3 > ambang 30 menit). Setelah data uji dibersihkan, `ops:health` kembali `exit 0` — alarm tidak menyala palsu. **15 Nov 2026: rantai notifikasi ke manusia dibuktikan end-to-end** — integrasi Email `MusenTix On-call` aktif; alarm dipicu → check DOWN → email "… is DOWN" masuk dengan body `[FAIL] Antrean gagal: 6 job gagal (ambang 5).` → data dibersihkan → `exit 0` → check kembali UP dan email pemulihan diterima. Rincian di `MONITORING_SETUP.md` §5–§6 |
 | (6) UAT disetujui museum pilot | ⛔ **Terblokir** | Butuh perwakilan museum pilot — lembar kerja siap di `docs/UAT_PLAN.md` |
 
 #### Penegakan verifikasi email pada transaksi tiket (14 Nov 2026)
@@ -402,19 +402,25 @@ dimuat di server produksi** meski semua tes lokal hijau.
 |---|---|---|
 | AC-4 pembayaran produksi | Tidak ada akun Midtrans produksi dan domain tetap | Kredensial produksi + domain HTTPS tetap + transaksi bernilai kecil nyata. **Seluruh rantai sudah terbukti di sandbox** (lihat bukti AC-4 di atas) |
 | AC-6 persetujuan UAT | Tidak ada perwakilan museum pilot | Sesi UAT dengan museum pilot |
-| AC-5 bukti alarm pada target nyata | Semua alarm terbukti berbunyi dan ping `/fail` terkirim ke Healthchecks.io; **notifikasi ke manusia** (email/Slack) belum diverifikasi | Aktifkan Integration di Healthchecks.io, lalu picu satu alarm dan pastikan notifikasinya sampai |
 | PostgreSQL lokal | Lingkungan pengembangan tidak punya `pdo_pgsql` | **Tidak lagi menghalangi**: CI menjalankan seluruh suite pada PostgreSQL 16 + Redis dan hijau (run `43657872272`) |
 
 Butir-butir di atas **tidak diklaim selesai**. Langkah verifikasinya sudah
 tertulis di `docs/GO_LIVE_CHECKLIST.md` §6, §8, §9, dan §12.
 
-Catatan AC-5: seluruh alarm sudah terbukti **berbunyi** dan mengirim ping `/fail`
-ke Healthchecks.io — antrean gagal, antrean menunggu, webhook tertunda, dan
-pembayaran menggantung (rincian di `docs/MONITORING_SETUP.md` §5). Setelah data
-uji dibersihkan, `ops:health` kembali `exit 0`, sehingga alarm tidak menyala
-palsu saat kondisi normal. Yang belum diverifikasi hanyalah **notifikasi sampai
-ke manusia** (Integration email/Slack di Healthchecks.io), karena itu
-konfigurasi akun monitor, bukan aplikasi.
+Catatan AC-5: rantai alarm kini terbukti **utuh sampai ke manusia**, bukan hanya
+sampai ke monitor. Keempat pemeriksaan terbukti berbunyi dan mengirim ping
+`/fail` (antrean gagal, antrean menunggu, webhook tertunda, pembayaran
+menggantung), lalu pada 15 Nov 2026 integrasi Email `MusenTix On-call`
+dibuktikan meneruskan status DOWN ke kotak masuk penanggung jawab, dan email
+pemulihan menyusul setelah data uji dibersihkan. Rincian di
+`docs/MONITORING_SETUP.md` §5–§6.
+
+Batas yang tetap jujur: alarm diuji dari **laptop pengembangan** lewat
+scheduler lokal, bukan dari server produksi. Rantai `server produksi →
+Healthchecks.io` baru terbukti setelah aplikasi terpasang di VPS — itu bagian
+dari AC-4/AC-6 yang masih terblokir. Kanal notifikasi juga baru satu (Email);
+Healthchecks.io menyarankan dua kanal berbeda agar kegagalan satu transport
+tidak menghilangkan alarm.
 
 ## Fase 10 — Fitur lanjutan (berkelanjutan)
 
