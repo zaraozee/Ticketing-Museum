@@ -130,7 +130,6 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [OrganizerDashboardController::class, 'index'])->name('dashboard');
 
         Route::resource('museums', OrganizerMuseumController::class)->except(['show']);
-
         Route::post('museums/{museum}/submit', [MuseumSubmissionController::class, 'store'])
             ->name('museums.submit');
 
@@ -180,10 +179,6 @@ Route::middleware('auth')->group(function () {
         Route::get('schedules', [OrganizerScheduleOverviewController::class, 'index'])
             ->name('schedules.index');
 
-        // Fase 6 — Gate Scanner & Riwayat Scan
-        Route::get('scanner', [GateScannerController::class, 'scanner'])->name('gate.scanner');
-        Route::get('scans', [GateScannerController::class, 'history'])->name('gate.history');
-
         // Fase 6 — Kelola Staf Gate
         Route::get('museums/{museum}/staff', [OrganizerStaffController::class, 'index'])->name('museums.staff.index');
         Route::post('museums/{museum}/staff', [OrganizerStaffController::class, 'store'])->name('museums.staff.store');
@@ -194,6 +189,26 @@ Route::middleware('auth')->group(function () {
         Route::get('bookings', [OrganizerBookingController::class, 'index'])->name('bookings.index');
         Route::get('reports', [OrganizerReportController::class, 'index'])->name('reports.index');
         Route::get('reports/export', [OrganizerReportController::class, 'export'])->name('reports.export');
+    });
+
+    /*
+     * Gate Scanner & Riwayat Scan (FR-GATE-01…06, SOP_GATE.md §1).
+     *
+     * Dipisahkan dari grup `role:organizer` karena petugas gate **bukan**
+     * organizer: mereka memakai peran `user` dengan baris `museum_staff`
+     * aktif. Sebelumnya kedua rute ini berada di dalam grup organizer,
+     * sehingga petugas gate mendapat 403 di halaman scanner — padahal
+     * SOP_GATE.md §1 memerintahkan mereka membukanya, dan API-nya
+     * (`/api/v1/gate/*`) memang sudah menerima mereka. Halaman yang tidak
+     * dapat dibuka sama saja dengan fitur yang tidak ada.
+     *
+     * Ruang lingkupnya sengaja dibatasi ke dua halaman ini. Dashboard,
+     * laporan, dan pengelolaan museum tetap milik organizer; daftar museum
+     * yang boleh dipindai sudah disaring per museum di controller.
+     */
+    Route::middleware('can:scan-gate')->prefix('organizer')->name('organizer.')->group(function (): void {
+        Route::get('scanner', [GateScannerController::class, 'scanner'])->name('gate.scanner');
+        Route::get('scans', [GateScannerController::class, 'history'])->name('gate.history');
     });
 
     // Admin Area

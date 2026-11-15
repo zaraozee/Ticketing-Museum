@@ -17,6 +17,7 @@ export interface SharedProps {
             phone?: string | null;
             is_organizer?: boolean;
             is_admin?: boolean;
+            can_scan_gate?: boolean;
             email_verified?: boolean;
             organizer_profile?: {
                 id: number;

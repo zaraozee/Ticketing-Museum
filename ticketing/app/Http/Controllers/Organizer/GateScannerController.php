@@ -5,7 +5,9 @@ namespace App\Http\Controllers\Organizer;
 use App\Http\Controllers\Controller;
 use App\Models\Museum;
 use App\Models\TicketScan;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -66,7 +68,19 @@ class GateScannerController extends Controller
         ]);
     }
 
-    private function getAccessibleMuseums($user)
+    /**
+     * Museum yang boleh dipindai pengguna ini: miliknya sendiri (organizer)
+     * digabung dengan museum tempat ia terdaftar sebagai staf aktif.
+     *
+     * Keduanya harus tetap berupa koleksi **model** sampai `merge()` selesai:
+     * `Eloquent\Collection::merge()` memanggil `getKey()` pada tiap item,
+     * sehingga memetakan ke array lebih dulu menghasilkan
+     * "Call to a member function getKey() on array". Pemetaan ke bentuk yang
+     * dipakai frontend dilakukan setelah penggabungan.
+     *
+     * @return Collection<int, array{id: int, name: string, slug: string}>
+     */
+    private function getAccessibleMuseums(User $user): Collection
     {
         $orgMuseums = Museum::select('id', 'name', 'slug')
             ->where('organizer_profile_id', $user->organizerProfile?->id)
@@ -80,8 +94,16 @@ class GateScannerController extends Controller
             ->get()
             ->pluck('museum')
             ->filter(fn ($m) => $m && $m->status->value === 'published')
-            ->map(fn ($m) => ['id' => $m->id, 'name' => $m->name, 'slug' => $m->slug]);
+            ->values();
 
-        return $orgMuseums->merge($staffMuseums)->unique('id')->values();
+        return $orgMuseums->merge($staffMuseums)
+            ->unique('id')
+            ->values()
+            ->map(fn (Museum $museum): array => [
+                'id' => $museum->id,
+                'name' => $museum->name,
+                'slug' => $museum->slug,
+            ])
+            ->values();
     }
 }

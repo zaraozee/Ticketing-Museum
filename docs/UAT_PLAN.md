@@ -190,6 +190,40 @@ mendapat **HTTP 500** saat mengekspor, bukan 404. Sudah diperbaiki dan dikunci
 tes (`the organizer export returns not found instead of a server error without
 an organizer profile`).
 
+### 4A.2 Gladi bersih lokal (15 Nov 2026) — bukan UAT resmi
+
+> **Bukan AC-6.** Gladi bersih dijalankan di lingkungan lokal untuk membuang
+> bug sebelum sesi museum. `UAT_PLAN.md` §1 menetapkan UAT resmi harus di
+> produksi; tanpa deployment, hasil ini tidak membuktikan apa pun tentang
+> produksi. Pencatatan di sini hanya agar sesi museum nanti cepat.
+
+34 skenario dijalankan satu per satu melalui HTTP sungguhan (bukan tes unit):
+login tiap peran, mengikuti alur pengunjung dari cari museum sampai tiket di
+Tiket Saya, pemindaian gate lewat API dengan `client_scan_uuid`, laporan &
+ekspor CSV yang angkanya dicocokkan dengan database, dan `ops:health --json`.
+
+| Kelompok | Skenario | Lulus | Gagal | Tidak dapat diuji |
+|---|---|---|---|---|
+| A. Pengunjung | 8 | 8 | – | – |
+| B. Petugas gate | 7 | 7 | – | – |
+| C. Pengelola museum | 5 | 5 | – | – |
+| D. Admin platform | 4 | 4 | – | – |
+| E. Keamanan | 5 | 3 | – | 2 (E3 jaringan lambat, E4 offline gate) |
+| F. Pembayaran produksi | 5 | – | – | 5 (butuh Midtrans produksi) |
+
+Empat bug nyata ditemukan dan diperbaiki (lihat `ROADMAP.md` tabel bug #13–#16):
+
+1. Petugas gate mendapat 403 di halaman scanner (rute dijaga `role:organizer`).
+2. Halaman scanner 500 saat petugas gate akhirnya dapat membukanya
+   (`merge()` Eloquent vs array).
+3. Menekan "Bayar" pada pesanan yang sudah lunas gagal diam-diam tanpa pesan.
+4. Menandai tanggal tutup tidak menolak pemesanan pada tanggal itu.
+
+Setelah perbaikan, seluruh gate hijau: Pint, PHPStan, Pest **354 tes / 1424
+assertions**, `vue-tsc --noEmit`, `npm run build`. Dua skenario (E3, E4) tidak
+dapat diuji tanpa perangkat dan jaringan nyata, dan lima skenario F menunggu
+Midtrans produksi — keduanya di luar jangkauan gladi bersih lokal.
+
 ---
 
 ## 5. Daftar temuan

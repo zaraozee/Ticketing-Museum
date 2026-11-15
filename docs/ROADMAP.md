@@ -379,6 +379,22 @@ diuji dengan mata adalah tempat bug bersembunyi** — bukan karena halamannya
 sulit, tetapi karena tidak ada yang pernah menjalankannya dengan input yang
 tidak biasa.
 
+#### Bug yang ditemukan lewat gladi bersih UAT (15 Nov 2026)
+
+| # | Bug | Mengapa lolos | Perbaikan |
+|---|---|---|---|
+| 13 | Petugas gate mendapat **403** di halaman scanner (`/organizer/scanner`) | Rute scanner berada di dalam grup `role:organizer`, padahal petugas gate memakai peran `user` + `museum_staff` aktif. API `/api/v1/gate/*` sudah menerima mereka, tetapi halaman yang dipakai petugas di lapangan tidak. Selama Fase 6–8 rute ini tidak pernah diuji dengan akun petugas gate sungguhan | Rute scanner & riwayat dipindah ke grup `can:scan-gate` (polis baru `GatePolicy`/`User::canScanGate`), hanya untuk dua halaman itu. Dikunci `GateStaffAccessTest` (8 tes) |
+| 14 | Halaman scanner **500** (`Call to a member function getKey() on array`) | `GateScannerController::getAccessibleMuseums()` memetakan koleksi staf ke *array* sebelum `merge()`, sedangkan `Eloquent\Collection::merge()` menuntut model. Versi API tidak memetakan lebih dulu, jadi lolos. Bug laten yang baru terlihat setelah bug #13 diperbaiki | Pemetaan ke array dilakukan *setelah* `merge()`. Dikunci `UatDryRunRegressionTest` |
+| 15 | Menekan "Bayar" pada pesanan yang tidak dapat dibayar **gagal diam-diam** | `BookingController::pay()` melempar `ValidationException`, yang berakhir di `page.props.errors` — tetapi tombol bayar memakai `router.post` (bukan `useForm`) dan tidak ada halaman yang merendernya. Pengunjung hanya melihat halaman yang sama tanpa penjelasan | Kegagalan ditangkap dan dikembalikan sebagai `flash.error`, yang dirender halaman detail dan layout. Dikunci 2 tes di `BookingFlowTest` + 2 tes lama di `PaymentWebhookTest` diperbarui |
+| 16 | Menandai tanggal tutup **tidak menolak pemesanan** | `BookingService::ensureSlotIsBookable()` memeriksa status slot dan jendela waktu, tetapi bukan `museum_closed_dates`. Tanggal tutup hanya dipakai saat membuat slot dan menampilkan kalender — slot yang sudah terlanjur dibuat tetap dapat dipesan, sehingga pengunjung membayar kunjungan ke museum yang tutup | Pemeriksaan tanggal tutup ditambahkan ke `ensureSlotIsBookable()`. Dikunci `UatDryRunRegressionTest` → "a closed date blocks booking on that date" + "a slot on a normal date can still be booked" |
+
+Keempat bug di atas ditemukan dengan menjalankan 34 skenario `UAT_PLAN.md` §3
+secara nyata di lingkungan lokal — bukan dari keluhan pengguna dan bukan dari
+tes yang sudah ada. Ini menegaskan pelajaran dari bug #12: **skenario yang
+berakhir pada halaman yang "sudah ada" adalah tempat bug bersembunyi**, karena
+tidak ada tes yang pernah menjalankannya dengan peran dan keadaan yang tepat.
+
+
 #### Pemetaan 13 skenario kunci §19
 
 | # | Skenario | Bukti otomatis |

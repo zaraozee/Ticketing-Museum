@@ -50,6 +50,14 @@ class HandleInertiaRequests extends Middleware
                     'roles' => $user->getRoleNames(),
                     'is_admin' => $user->isGlobalAdmin(),
                     'is_organizer' => $user->isOrganizer(),
+                    /*
+                     * Petugas gate bukan organizer: mereka memakai peran `user`
+                     * dengan baris `museum_staff` aktif. UI memerlukan penanda
+                     * ini agar tidak menampilkan menu pengelola kepada orang
+                     * yang akan mendapat 403, dan tidak menyembunyikan menu
+                     * scanner dari orang yang bertugas memindai (SOP_GATE.md).
+                     */
+                    'can_scan_gate' => $user->canScanGate(),
                     // Dipakai UI untuk memberi tahu pengunjung bahwa pemesanan
                     // memerlukan verifikasi email, sebelum mereka menekan
                     // tombol dan terlempar ke halaman verifikasi.

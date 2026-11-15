@@ -380,6 +380,25 @@ class BookingService
                 ]);
             }
         }
+
+        /*
+         * Tanggal tutup museum (FR-SCH-04).
+         *
+         * Tanpa pemeriksaan ini, menandai tanggal tutup hanya memengaruhi
+         * pembuatan slot dan tampilan kalender: slot yang sudah terlanjur
+         * dibuat tetap dapat dipesan, sehingga pengunjung membayar kunjungan
+         * ke museum yang tutup. Pemesanan publik adalah jalur yang harus
+         * menolaknya, bukan sekadar label di kalender.
+         */
+        $isClosed = $museum->closedDates()
+            ->whereDate('closed_on', $date->toDateString())
+            ->exists();
+
+        if ($isClosed) {
+            throw ValidationException::withMessages([
+                'visit_slot_id' => 'Museum tutup pada tanggal tersebut. Silakan pilih tanggal lain.',
+            ]);
+        }
     }
 
     private function ensureSlotBelongsToMuseum(Museum $museum, VisitSlot $slot): void

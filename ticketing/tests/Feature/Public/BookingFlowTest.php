@@ -218,6 +218,42 @@ test('a confirmed booking cannot be cancelled by the visitor', function (): void
         ->and($this->slot->fresh()->sold_count)->toBe(2);
 });
 
+/*
+ * Pesan penolakan harus benar-benar sampai ke pengguna.
+ *
+ * Tombol "Bayar" memakai `router.post`, bukan `useForm`, sehingga
+ * `ValidationException` berakhir di `page.props.errors` — dan tidak ada
+ * halaman yang merendernya. Akibatnya pengguna yang menekan bayar pada booking
+ * yang sudah lunas hanya melihat halaman yang sama tanpa penjelasan apa pun.
+ * Karena itu kegagalan dikembalikan sebagai flash, yang dirender halaman.
+ */
+test('paying a booking that is no longer payable shows a message instead of failing silently', function (): void {
+    $booking = Booking::factory()->confirmed()->forSlot($this->slot)->forUser($this->user)->create();
+
+    $response = $this->actingAs($this->user)
+        ->post(route('bookings.pay', $booking->uuid));
+
+    $response->assertRedirect(route('bookings.show', $booking->uuid));
+    $response->assertSessionHas('error', 'Booking ini tidak dapat dibayar lagi.');
+    expect($booking->fresh()->payments()->count())->toBe(0);
+});
+
+test('the message from a refused payment is visible on the booking page', function (): void {
+    $booking = Booking::factory()->confirmed()->forSlot($this->slot)->forUser($this->user)->create();
+
+    $this->actingAs($this->user)
+        ->post(route('bookings.pay', $booking->uuid))
+        ->assertSessionHas('error');
+
+    $this->actingAs($this->user)
+        ->get(route('bookings.show', $booking->uuid))
+        ->assertOk()
+        ->assertInertia(fn ($page) => $page
+            ->where('flash.error', 'Booking ini tidak dapat dibayar lagi.')
+            ->where('booking.is_payable', false)
+        );
+});
+
 test('a visitor cannot view or cancel another visitor booking', function (): void {
     $owner = User::factory()->create();
     $intruder = User::factory()->create();

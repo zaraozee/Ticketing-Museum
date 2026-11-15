@@ -16,6 +16,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Redirect;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -159,12 +160,23 @@ class BookingController extends Controller
 
     /**
      * Mulai/lanjutkan pembayaran (FR-BKG-09, FR-PAY-01).
+     *
+     * Kegagalan dikembalikan sebagai flash, bukan `ValidationException`.
+     * Alasan: tombol bayar memakai `router.post` (bukan `useForm`), sehingga
+     * pesan validasi berakhir di `page.props.errors` yang tidak dirender oleh
+     * halaman mana pun — pengguna hanya melihat halaman yang sama tanpa
+     * penjelasan apa pun. Flash dirender di halaman detail dan di layout.
      */
     public function pay(Request $request, Booking $booking): RedirectResponse
     {
         Gate::authorize('view', $booking);
 
-        $this->payments->start($booking);
+        try {
+            $this->payments->start($booking);
+        } catch (ValidationException $e) {
+            return Redirect::route('bookings.show', $booking->uuid)
+                ->with('error', $e->validator->errors()->first('booking'));
+        }
 
         return Redirect::route('bookings.show', $booking->uuid);
     }

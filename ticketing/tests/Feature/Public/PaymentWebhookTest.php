@@ -199,7 +199,7 @@ test('a confirmed booking cannot be paid again', function (): void {
 
     $this->actingAs($this->user)
         ->post(route('bookings.pay', $this->booking->uuid))
-        ->assertSessionHasErrors('booking');
+        ->assertSessionHas('error', 'Booking ini tidak dapat dibayar lagi.');
 
     expect(Payment::query()->count())->toBe(0);
 });
@@ -209,7 +209,9 @@ test('a payment attempt is refused when the booking has less than three minutes 
 
     $this->actingAs($this->user)
         ->post(route('bookings.pay', $this->booking->uuid))
-        ->assertSessionHasErrors('booking');
+        ->assertSessionHas('error', 'Sisa waktu pembayaran terlalu singkat. Silakan buat pemesanan baru.');
+
+    expect(Payment::query()->count())->toBe(0);
 });
 
 test('AC-4: a successful payment confirms the booking, moves quota to sold, and issues tickets', function (): void {

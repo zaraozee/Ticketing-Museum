@@ -144,4 +144,25 @@ class User extends Authenticatable implements MustVerifyEmail
             ->when($role, fn ($query) => $query->where('staff_role', $role))
             ->exists();
     }
+
+    /**
+     * Boleh membuka halaman Gate Scanner (FR-GATE-01…06, SOP_GATE.md §1).
+     *
+     * Pemindaian tiket adalah pekerjaan **petugas gate**, bukan hanya pengelola.
+     * Petugas gate memakai peran `user` dengan baris `museum_staff` aktif,
+     * sehingga pemeriksaan peran saja menolak orang yang justru bertugas
+     * memindai tiket. Yang diperiksa di sini hanya boleh-tidaknya membuka
+     * halaman; museum mana yang boleh dipindai tetap disaring per museum di
+     * controller, dan endpoint API memverifikasi ulang keanggotaan staf.
+     */
+    public function canScanGate(): bool
+    {
+        if ($this->isOrganizer()) {
+            return true;
+        }
+
+        return $this->museumStaff()
+            ->where('is_active', true)
+            ->exists();
+    }
 }

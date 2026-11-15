@@ -13,16 +13,25 @@ const orgProfile = computed(() => user.value?.organizer_profile);
 /**
  * Navigasi disusun dari route yang benar-benar ada (routes/web.php). Tautan
  * mati (mis. `/organizer/staff`) dihapus pada Fase 8 agar tidak ada 404.
+ *
+ * `roleOnly` menandai menu yang hanya untuk pengelola. Petugas gate juga
+ * memakai layout ini untuk halaman scanner, tetapi tidak boleh diberi menu
+ * pengelola — menampilkan tautan yang berujung 403 membuat petugas mengira
+ * aplikasinya rusak (SOP_GATE.md §1).
  */
-const links = [
-    { href: '/organizer', label: 'Dashboard' },
-    { href: '/organizer/museums', label: 'Museum Saya' },
-    { href: '/organizer/schedules', label: 'Tiket & Jadwal Kuota' },
-    { href: '/organizer/bookings', label: 'Daftar Pemesanan' },
-    { href: '/organizer/reports', label: 'Laporan & Ekspor' },
-    { href: '/organizer/scanner', label: 'Gate Scanner' },
-    { href: '/organizer/scans', label: 'Riwayat Scan' },
+const allLinks = [
+    { href: '/organizer', label: 'Dashboard', roleOnly: true },
+    { href: '/organizer/museums', label: 'Museum Saya', roleOnly: true },
+    { href: '/organizer/schedules', label: 'Tiket & Jadwal Kuota', roleOnly: true },
+    { href: '/organizer/bookings', label: 'Daftar Pemesanan', roleOnly: true },
+    { href: '/organizer/reports', label: 'Laporan & Ekspor', roleOnly: true },
+    { href: '/organizer/scanner', label: 'Gate Scanner', roleOnly: false },
+    { href: '/organizer/scans', label: 'Riwayat Scan', roleOnly: false },
 ];
+
+const isOrganizer = computed(() => user.value?.is_organizer === true);
+
+const links = computed(() => allLinks.filter((link) => isOrganizer.value || !link.roleOnly));
 
 const mobileMenuOpen = ref(false);
 
@@ -68,7 +77,7 @@ const logout = (): void => {
                 <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-sm font-bold">P</span>
                 <div class="min-w-0">
                     <h1 class="truncate text-sm font-bold leading-tight">{{ appName }}</h1>
-                    <p class="text-[10px] font-medium text-blue-400">AREA PENGELOLA</p>
+                    <p class="text-[10px] font-medium text-blue-400">{{ isOrganizer ? 'AREA PENGELOLA' : 'AREA GATE' }}</p>
                 </div>
                 <button
                     type="button"
@@ -84,11 +93,11 @@ const logout = (): void => {
 
             <!-- Organization Badge -->
             <div class="border-b border-slate-800 bg-slate-800/60 p-4">
-                <div class="text-xs font-medium text-slate-400">Organisasi / Badan</div>
+                <div class="text-xs font-medium text-slate-400">{{ isOrganizer ? 'Organisasi / Badan' : 'Petugas Gate' }}</div>
                 <div class="mt-0.5 truncate text-sm font-semibold text-white">
-                    {{ orgProfile?.organization_name || 'Pengelola Museum' }}
+                    {{ isOrganizer ? (orgProfile?.organization_name || 'Pengelola Museum') : (user?.name || 'Petugas') }}
                 </div>
-                <div class="mt-1">
+                <div v-if="isOrganizer" class="mt-1">
                     <span
                         v-if="orgProfile?.status === 'approved'"
                         class="inline-block rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300"
@@ -164,7 +173,7 @@ const logout = (): void => {
                     </svg>
                 </button>
                 <h2 class="min-w-0 flex-1 truncate text-base font-semibold text-slate-800 sm:text-lg">
-                    <slot name="header">Dashboard Pengelola</slot>
+                    <slot name="header">{{ isOrganizer ? 'Dashboard Pengelola' : 'Gate Scanner' }}</slot>
                 </h2>
                 <div class="hidden items-center gap-3 text-sm text-slate-600 sm:flex">
                     <span class="max-w-[16rem] truncate">{{ user?.email }}</span>

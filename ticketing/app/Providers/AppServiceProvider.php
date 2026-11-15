@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Booking;
 use App\Models\Museum;
+use App\Models\User;
 use App\Policies\BookingPolicy;
 use App\Policies\MuseumPolicy;
 use App\Services\Payment\FakeMidtransClient;
@@ -55,6 +56,15 @@ class AppServiceProvider extends ServiceProvider
     {
         Gate::policy(Museum::class, MuseumPolicy::class);
         Gate::policy(Booking::class, BookingPolicy::class);
+
+        /*
+         * Halaman Gate Scanner dijaga kemampuan, bukan peran: petugas gate
+         * memakai peran `user` + `museum_staff` aktif, sehingga pemeriksaan
+         * peran saja menolak orang yang justru bertugas memindai tiket
+         * (SOP_GATE.md §1). Aturannya tinggal di `User::canScanGate()` agar
+         * tidak ada dua sumber kebenaran.
+         */
+        Gate::define('scan-gate', fn (User $user): bool => $user->canScanGate());
 
         $this->configureRateLimiting();
     }
